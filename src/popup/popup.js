@@ -4,6 +4,7 @@
 
 import { createBackup, downloadBackup, openBackupFile, restoreBackup } from '../lib/backup.js';
 import { PageStore } from '../lib/page.js';
+import { Storage } from '../lib/storage.js';
 
 // DOM Elements
 const pageList = document.getElementById('pageList');
@@ -413,6 +414,21 @@ async function init() {
   }
   
   loadPages();
+
+  // Listen for sync changes from other devices
+  Storage.onChange(async (changes, area) => {
+    if (area === 'sync') {
+      // Check if any page data changed
+      const hasPageChanges = Object.keys(changes).some(key => key.startsWith('page:'));
+      if (hasPageChanges) {
+        console.log('[Popup] Sync changes detected, refreshing page list...');
+        // Show brief status to indicate sync
+        showStatus('Synced from another device');
+        await loadPages();
+        setTimeout(hideStatus, 2000);
+      }
+    }
+  });
 }
 
 // Initialize

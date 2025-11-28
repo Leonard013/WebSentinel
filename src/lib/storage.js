@@ -34,29 +34,94 @@ async function initDB() {
 
 /**
  * Chrome storage operations for page metadata
+ * Uses chrome.storage.sync for cloud sync across devices
  */
 export const Storage = {
   async get(key) {
-    const result = await chrome.storage.local.get(key);
-    return result[key];
+    try {
+      const result = await chrome.storage.sync.get(key);
+      return result[key];
+    } catch (error) {
+      // Fallback to local if sync fails (e.g., quota exceeded)
+      console.warn('[Storage] Sync failed, falling back to local:', error);
+      const result = await chrome.storage.local.get(key);
+      return result[key];
+    }
   },
 
   async set(key, value) {
-    return chrome.storage.local.set({ [key]: value });
+    try {
+      return chrome.storage.sync.set({ [key]: value });
+    } catch (error) {
+      // Fallback to local if sync fails (e.g., quota exceeded)
+      console.warn('[Storage] Sync failed, falling back to local:', error);
+      return chrome.storage.local.set({ [key]: value });
+    }
   },
 
   async remove(key) {
-    return chrome.storage.local.remove(key);
+    try {
+      // Remove from both sync and local to ensure cleanup
+      await Promise.all([
+        chrome.storage.sync.remove(key).catch(() => {}),
+        chrome.storage.local.remove(key).catch(() => {})
+      ]);
+    } catch (error) {
+      console.warn('[Storage] Remove error:', error);
+    }
   },
 
   async getAll() {
-    return chrome.storage.local.get(null);
+    try {
+      return chrome.storage.sync.get(null);
+    } catch (error) {
+      // Fallback to local if sync fails
+      console.warn('[Storage] Sync getAll failed, falling back to local:', error);
+      return chrome.storage.local.get(null);
+    }
   },
 
   onChange(callback) {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local') callback(changes);
+      // Listen to both sync and local changes
+      if (area === 'sync' || area === 'local') {
+        callback(changes, area);
+      }
     });
+  },
+
+  /**
+   * Migrate data from local to sync storage (one-time migration)
+   */
+  async migrateToSync() {
+    try {
+      const localData = await chrome.storage.local.get(null);
+      const syncData = await chrome.storage.sync.get(null);
+      
+      // Check if migration is needed
+      const hasLocalPages = Object.keys(localData).some(key => key.startsWith('page:'));
+      const hasSyncPages = Object.keys(syncData).some(key => key.startsWith('page:'));
+      
+      if (hasLocalPages && !hasSyncPages) {
+        console.log('[Storage] Migrating pages from local to sync storage...');
+        
+        // Migrate only page metadata (not HTML, which stays in IndexedDB)
+        const pagesToMigrate = {};
+        for (const [key, value] of Object.entries(localData)) {
+          if (key.startsWith('page:')) {
+            pagesToMigrate[key] = value;
+          }
+        }
+        
+        if (Object.keys(pagesToMigrate).length > 0) {
+          await chrome.storage.sync.set(pagesToMigrate);
+          console.log(`[Storage] Migrated ${Object.keys(pagesToMigrate).length} pages to sync storage`);
+        }
+      }
+    } catch (error) {
+      console.error('[Storage] Migration error:', error);
+      // Migration failure is not critical, continue with local storage
+    }
   }
 };
 

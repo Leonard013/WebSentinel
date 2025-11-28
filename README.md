@@ -1,9 +1,5 @@
 # WebSentinel
 
-A modern Chrome extension that monitors webpages for changes and notifies you when content updates.
-
-![WebSentinel](icons/icon-128.png)
-
 ## Installation
 
 1. Open Chrome and navigate to `chrome://extensions/`

@@ -4,15 +4,6 @@ A modern Chrome extension that monitors webpages for changes and notifies you wh
 
 ![WebSentinel](icons/icon-128.png)
 
-## Features
-
-- 🔍 **Monitor any webpage** - Track changes on any URL
-- 🔔 **Smart notifications** - Get alerted when pages update
-- 🎨 **Visual diff viewer** - See exactly what changed with highlighted differences
-- ⚙️ **Configurable sensitivity** - From "Every Change" to "Major Updates Only"
-- 💾 **Backup & Restore** - Export and import your monitored pages
-- 🌙 **Modern dark UI** - Clean, elegant interface
-
 ## Installation
 
 1. Open Chrome and navigate to `chrome://extensions/`

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Icon Generator</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #1a1a21; color: white; }
+    canvas { margin: 10px; border: 1px solid #333; }
+    .icons { display: flex; flex-wrap: wrap; gap: 20px; }
+    .icon-container { text-align: center; }
+    a { color: #6366f1; }
+  </style>
+</head>
+<body>
+  <h1>Page Watch Icon Generator</h1>
+  <p>Right-click each icon and save as PNG</p>
+  <div class="icons">
+    <div class="icon-container">
+      <canvas id="icon16" width="16" height="16"></canvas>
+      <p>16x16</p>
+    </div>
+    <div class="icon-container">
+      <canvas id="icon32" width="32" height="32"></canvas>
+      <p>32x32</p>
+    </div>
+    <div class="icon-container">
+      <canvas id="icon48" width="48" height="48"></canvas>
+      <p>48x48</p>
+    </div>
+    <div class="icon-container">
+      <canvas id="icon128" width="128" height="128"></canvas>
+      <p>128x128</p>
+    </div>
+  </div>
+  
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      const scale = size / 128;
+      
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#6366f1');
+      gradient.addColorStop(1, '#4f46e5');
+      
+      // Draw background circle
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, size * 0.47, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      
+      // Clock circle outline
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, size * 0.34, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = Math.max(1, 4 * scale);
+      ctx.stroke();
+      
+      // Hour hand (pointing up)
+      ctx.beginPath();
+      ctx.moveTo(size/2, size/2);
+      ctx.lineTo(size/2, size * 0.25);
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = Math.max(1, 5 * scale);
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      
+      // Minute hand
+      ctx.beginPath();
+      ctx.moveTo(size/2, size/2);
+      ctx.lineTo(size * 0.69, size * 0.56);
+      ctx.lineWidth = Math.max(1, 4 * scale);
+      ctx.stroke();
+      
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, Math.max(2, 6 * scale), 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      
+      // Refresh arrow (simplified for small sizes)
+      if (size >= 32) {
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size * 0.31, -0.5, 2.2, false);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = Math.max(1, 4 * scale);
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        
+        // Arrow head
+        const arrowSize = Math.max(4, 12 * scale);
+        ctx.beginPath();
+        ctx.moveTo(size * 0.78, size * 0.38);
+        ctx.lineTo(size * 0.78 + arrowSize * 0.5, size * 0.38 - arrowSize);
+        ctx.lineTo(size * 0.78 + arrowSize, size * 0.38 + arrowSize * 0.3);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fill();
+      }
+    }
+    
+    // Draw all sizes
+    ['icon16', 'icon32', 'icon48', 'icon128'].forEach(id => {
+      drawIcon(document.getElementById(id));
+    });
+  </script>
+</body>
+</html>

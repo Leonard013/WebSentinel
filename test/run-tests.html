@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Watch - Test Runner</title>
+  <style>
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #0f0f13;
+      color: #f5f5f7;
+    }
+    h1 { color: #6366f1; }
+    .test-section {
+      background: #1a1a21;
+      border: 1px solid #2d2d3a;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .test-result {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+    }
+    .test-result.pass {
+      background: rgba(34, 197, 94, 0.2);
+      border-left: 3px solid #22c55e;
+    }
+    .test-result.fail {
+      background: rgba(239, 68, 68, 0.2);
+      border-left: 3px solid #ef4444;
+    }
+    .test-result.info {
+      background: rgba(99, 102, 241, 0.2);
+      border-left: 3px solid #6366f1;
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #818cf8;
+    }
+    #output {
+      max-height: 600px;
+      overflow-y: auto;
+      background: #0f0f13;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .summary {
+      background: #252530;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Page Watch Test Runner</h1>
+  
+  <div class="test-section">
+    <h2>Quick Tests</h2>
+    <button onclick="runAllTests()" style="background: #22c55e; font-size: 16px; padding: 15px 30px;">
+      🚀 Run All Tests
+    </button>
+  </div>
+
+  <div class="test-section">
+    <h2>Unit Tests</h2>
+    <button onclick="runDiffTests()">Run Diff Tests</button>
+    <button onclick="runSingleCharTest()">Single Character Detection</button>
+  </div>
+
+  <div class="test-section">
+    <h2>Performance Tests</h2>
+    <button onclick="runPerformanceTest()">Performance Test</button>
+  </div>
+
+  <div class="test-section">
+    <button onclick="clearOutput()" style="background: #71717a;">Clear Output</button>
+  </div>
+
+  <div id="output"></div>
+  <div id="summary" class="summary" style="display: none;"></div>
+
+  <script type="module">
+    let output = document.getElementById('output');
+    let summary = document.getElementById('summary');
+
+    function log(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `test-result ${type}`;
+      div.textContent = message;
+      output.appendChild(div);
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function clearOutput() {
+      output.innerHTML = '';
+      summary.style.display = 'none';
+    }
+
+    window.clearOutput = clearOutput;
+
+    // Inline diff functions to avoid CORS issues
+    function extractText(html) {
+      if (!html) return '';
+      return html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function countCharacterChanges(oldText, newText) {
+      const m = oldText.length;
+      const n = newText.length;
+      
+      if (Math.abs(m - n) > Math.max(m, n) * 0.5) {
+        return Math.max(m, n);
+      }
+      
+      if (m === 0) return n;
+      if (n === 0) return m;
+      
+      let prev = new Array(n + 1).fill(0);
+      let curr = new Array(n + 1).fill(0);
+      
+      for (let j = 0; j <= n; j++) {
+        prev[j] = j;
+      }
+      
+      for (let i = 1; i <= m; i++) {
+        curr[0] = i;
+        for (let j = 1; j <= n; j++) {
+          if (oldText[i - 1] === newText[j - 1]) {
+            curr[j] = prev[j - 1];
+          } else {
+            curr[j] = Math.min(
+              prev[j] + 1,
+              curr[j - 1] + 1,
+              prev[j - 1] + 1
+            );
+          }
+        }
+        [prev, curr] = [curr, prev];
+      }
+      
+      return prev[n];
+    }
+
+    function longestCommonSubsequenceLength(a, b) {
+      if (a.length === 0 || b.length === 0) return 0;
+      
+      let prev = new Array(b.length + 1).fill(0);
+      let curr = new Array(b.length + 1).fill(0);
+      
+      for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+          if (a[i - 1] === b[j - 1]) {
+            curr[j] = prev[j - 1] + 1;
+          } else {
+            curr[j] = Math.max(prev[j], curr[j - 1]);
+          }
+        }
+        [prev, curr] = [curr, prev];
+      }
+      
+      return prev[b.length];
+    }
+
+    function countChanges(oldText, newText) {
+      if (!oldText || !newText) return 0;
+      if (oldText === newText) return 0;
+      
+      const useCharacterLevel = oldText.length < 1000 || newText.length < 1000;
+      
+      if (useCharacterLevel) {
+        return countCharacterChanges(oldText, newText);
+      }
+      
+      const oldWords = oldText.split(/\s+/);
+      const newWords = newText.split(/\s+/);
+      
+      const lcsLength = longestCommonSubsequenceLength(oldWords, newWords);
+      const added = newWords.length - lcsLength;
+      const removed = oldWords.length - lcsLength;
+      
+      return added + removed;
+    }
+
+    // Import test modules
+    async function runDiffTests() {
+      clearOutput();
+      log('Running Diff Detection Tests...', 'info');
+      
+      try {
+        // Use inline functions instead of importing
+        
+        let passed = 0;
+        let failed = 0;
+
+        // Test single character changes
+        const singleCharTests = [
+          { name: 'Single char addition', old: 'Hello', new: 'Hellox', shouldDetect: true },
+          { name: 'Single char removal', old: 'Hello', new: 'Hell', shouldDetect: true },
+          { name: 'Single char modification', old: 'Hello', new: 'Hallo', shouldDetect: true },
+          { name: 'Single char at start', old: 'Hello', new: 'Xello', shouldDetect: true },
+          { name: 'Single char at end', old: 'Hello', new: 'Hellox', shouldDetect: true },
+          { name: 'Single space change', old: 'Hello world', new: 'Hello  world', shouldDetect: true },
+          { name: 'Identical text', old: 'Hello', new: 'Hello', shouldDetect: false }
+        ];
+
+        for (const test of singleCharTests) {
+          const changes = countChanges(test.old, test.new);
+          const detected = changes > 0;
+          
+          if (detected === test.shouldDetect) {
+            passed++;
+            log(`✓ ${test.name}: ${detected ? 'detected' : 'not detected'} (${changes} changes)`, 'pass');
+          } else {
+            failed++;
+            log(`✗ ${test.name}: expected ${test.shouldDetect ? 'detected' : 'not detected'}, got ${detected ? 'detected' : 'not detected'} (${changes} changes)`, 'fail');
+          }
+        }
+
+        log(`\nResults: ${passed} passed, ${failed} failed`, failed === 0 ? 'pass' : 'fail');
+        
+        summary.style.display = 'block';
+        summary.innerHTML = `<h3>Diff Tests Summary</h3><p>Passed: ${passed} | Failed: ${failed} | Total: ${passed + failed}</p>`;
+      } catch (error) {
+        log(`Error: ${error.message}`, 'fail');
+        console.error(error);
+      }
+    }
+
+    async function runSingleCharTest() {
+      clearOutput();
+      log('Running Single Character Detection Load Test...', 'info');
+      
+      try {
+        // Use inline countChanges function
+        
+        const testCases = [];
+        for (let i = 0; i < 100; i++) {
+          const base = `Test content ${i}`;
+          testCases.push({
+            old: base,
+            new: base + 'x', // Single character addition
+            name: `Test ${i}`
+          });
+        }
+
+        let detected = 0;
+        let missed = 0;
+        const startTime = performance.now();
+
+        for (const test of testCases) {
+          const changes = countChanges(test.old, test.new);
+          if (changes > 0) {
+            detected++;
+          } else {
+            missed++;
+            log(`✗ ${test.name}: Missed single character change`, 'fail');
+          }
+        }
+
+        const duration = performance.now() - startTime;
+
+        log(`\nLoad Test Results:`, 'info');
+        log(`Total tests: ${testCases.length}`, 'info');
+        log(`Detected: ${detected}`, detected === testCases.length ? 'pass' : 'fail');
+        log(`Missed: ${missed}`, missed === 0 ? 'pass' : 'fail');
+        log(`Duration: ${duration.toFixed(2)}ms`, 'info');
+        log(`Average: ${(duration / testCases.length).toFixed(2)}ms per test`, 'info');
+        log(`Success rate: ${((detected / testCases.length) * 100).toFixed(2)}%`, detected === testCases.length ? 'pass' : 'fail');
+
+        summary.style.display = 'block';
+        summary.innerHTML = `<h3>Single Character Test Summary</h3><p>Detected: ${detected}/${testCases.length} (${((detected / testCases.length) * 100).toFixed(2)}%)</p><p>Duration: ${duration.toFixed(2)}ms</p>`;
+      } catch (error) {
+        log(`Error: ${error.message}`, 'fail');
+        console.error(error);
+      }
+    }
+
+    async function runPerformanceTest() {
+      clearOutput();
+      log('Running Performance Test...', 'info');
+      
+      try {
+        // Use inline countChanges function
+        
+        // Generate large text
+        const largeText = 'x'.repeat(10000);
+        const modifiedText = largeText + 'y';
+
+        const iterations = 20;
+        const times = [];
+
+        log(`Testing with ${(largeText.length / 1024).toFixed(2)}KB text, ${iterations} iterations...`, 'info');
+
+        for (let i = 0; i < iterations; i++) {
+          const start = performance.now();
+          const changes = countChanges(largeText, modifiedText);
+          const duration = performance.now() - start;
+          times.push(duration);
+        }
+
+        const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
+        const minTime = Math.min(...times);
+        const maxTime = Math.max(...times);
+
+        log(`Average time: ${avgTime.toFixed(2)}ms`, 'info');
+        log(`Min time: ${minTime.toFixed(2)}ms`, 'info');
+        log(`Max time: ${maxTime.toFixed(2)}ms`, 'info');
+        log(`Performance: ${avgTime < 100 ? 'Excellent' : avgTime < 500 ? 'Good' : 'Needs improvement'}`, avgTime < 500 ? 'pass' : 'fail');
+
+        summary.style.display = 'block';
+        summary.innerHTML = `<h3>Performance Test Summary</h3><p>Average: ${avgTime.toFixed(2)}ms</p><p>Range: ${minTime.toFixed(2)}ms - ${maxTime.toFixed(2)}ms</p>`;
+      } catch (error) {
+        log(`Error: ${error.message}`, 'fail');
+        console.error(error);
+      }
+    }
+
+    window.runDiffTests = runDiffTests;
+    window.runSingleCharTest = runSingleCharTest;
+    window.runPerformanceTest = runPerformanceTest;
+
+    // Auto-run diff tests on load
+    setTimeout(() => {
+      log('🧪 Page Watch Test Runner Ready', 'info');
+      log('', 'info');
+      log('📋 Available Tests:', 'info');
+      log('  • Run Diff Tests - Tests single character detection', 'info');
+      log('  • Single Character Detection - Load test with 100 pages', 'info');
+      log('  • Performance Test - Tests with large HTML', 'info');
+      log('', 'info');
+      log('💡 Tip: Start with "Run Diff Tests" to verify basic functionality', 'info');
+    }, 100);
+
+    // Add comprehensive test suite
+    async function runAllTests() {
+      clearOutput();
+      log('🚀 Running All Tests...', 'info');
+      log('', 'info');
+      
+      await runDiffTests();
+      log('', 'info');
+      await runSingleCharTest();
+      log('', 'info');
+      await runPerformanceTest();
+      
+      log('', 'info');
+      log('✅ All tests completed!', 'pass');
+    }
+
+    window.runAllTests = runAllTests;
+  </script>
+</body>
+</html>

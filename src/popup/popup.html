@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Watch</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-title">
+        <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <h1>Page Watch</h1>
+      </div>
+      <button id="menuBtn" class="icon-btn" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="1"/>
+          <circle cx="12" cy="5" r="1"/>
+          <circle cx="12" cy="19" r="1"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Menu Dropdown -->
+    <div id="menu" class="menu hidden">
+      <button id="scanAllBtn" class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        Scan All Pages
+      </button>
+      <button id="backupBtn" class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Backup Pages
+      </button>
+      <button id="restoreBtn" class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Restore Pages
+      </button>
+    </div>
+
+    <!-- Page List -->
+    <main class="page-list" id="pageList">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p>No pages yet</p>
+        <span>Click + to add a page to monitor</span>
+      </div>
+    </main>
+
+    <!-- Status Bar -->
+    <div id="statusBar" class="status-bar hidden">
+      <div class="spinner"></div>
+      <span id="statusText">Scanning...</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <button id="addBtn" class="btn primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Add Page
+      </button>
+    </footer>
+  </div>
+
+  <!-- Add/Edit Page Modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Page</h2>
+        <button id="closeModal" class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form id="pageForm">
+        <div class="form-group">
+          <label for="pageTitle">Title</label>
+          <input type="text" id="pageTitle" required placeholder="Page name">
+        </div>
+        <div class="form-group">
+          <label for="pageUrl">URL</label>
+          <input type="url" id="pageUrl" required placeholder="https://example.com">
+        </div>
+        <div class="form-group">
+          <label for="scanInterval">Scan Interval</label>
+          <select id="scanInterval">
+            <option value="5">Every 5 minutes</option>
+            <option value="15">Every 15 minutes</option>
+            <option value="30">Every 30 minutes</option>
+            <option value="60" selected>Every hour</option>
+            <option value="360">Every 6 hours</option>
+            <option value="1440">Every day</option>
+            <option value="0">Manual only</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="changeThreshold">
+            Change Sensitivity
+            <span class="help-text" title="Number of word changes needed to trigger an update notification">ℹ️</span>
+          </label>
+          <select id="changeThreshold">
+            <option value="1">Every Change (1 word)</option>
+            <option value="10">Very Sensitive (10 words)</option>
+            <option value="25">Sensitive (25 words)</option>
+            <option value="50">Moderate (50 words)</option>
+            <option value="100" selected>Default (100 words)</option>
+            <option value="200">Low (200 words)</option>
+            <option value="500">Very Low (500 words)</option>
+          </select>
+          <small class="form-hint">"Every Change" detects any modification. Lower = more notifications, Higher = only major changes</small>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="cancelBtn" class="btn secondary">Cancel</button>
+          <button type="submit" class="btn primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

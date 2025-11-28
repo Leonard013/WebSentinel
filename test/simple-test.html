@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple Page Watch Test</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .test-box {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px;
+    }
+    button:hover { background: #818cf8; }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .pass { background: #d1fae5; color: #065f46; }
+    .fail { background: #fee2e2; color: #991b1b; }
+    .info { background: #dbeafe; color: #1e40af; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Simple Page Watch Test</h1>
+  <p>Quick test to verify single character detection works</p>
+
+  <div class="test-box">
+    <h2>Test 1: Single Character Detection</h2>
+    <p>This test verifies that the diff algorithm can detect single character changes.</p>
+    <button onclick="testSingleChar()">Run Test</button>
+    <div id="result1"></div>
+  </div>
+
+  <div class="test-box">
+    <h2>Test 2: Multiple Scenarios</h2>
+    <p>Tests various single character change scenarios.</p>
+    <button onclick="testMultiple()">Run Test</button>
+    <div id="result2"></div>
+  </div>
+
+  <div class="test-box">
+    <h2>Test 3: Real HTML Content</h2>
+    <p>Tests with actual HTML content (like a webpage).</p>
+    <button onclick="testHTML()">Run Test</button>
+    <div id="result3"></div>
+  </div>
+
+  <script>
+    // Inline diff functions to avoid CORS issues
+    function extractText(html) {
+      if (!html) return '';
+      return html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function countCharacterChanges(oldText, newText) {
+      const m = oldText.length;
+      const n = newText.length;
+      
+      if (Math.abs(m - n) > Math.max(m, n) * 0.5) {
+        return Math.max(m, n);
+      }
+      
+      if (m === 0) return n;
+      if (n === 0) return m;
+      
+      let prev = new Array(n + 1).fill(0);
+      let curr = new Array(n + 1).fill(0);
+      
+      for (let j = 0; j <= n; j++) {
+        prev[j] = j;
+      }
+      
+      for (let i = 1; i <= m; i++) {
+        curr[0] = i;
+        for (let j = 1; j <= n; j++) {
+          if (oldText[i - 1] === newText[j - 1]) {
+            curr[j] = prev[j - 1];
+          } else {
+            curr[j] = Math.min(
+              prev[j] + 1,
+              curr[j - 1] + 1,
+              prev[j - 1] + 1
+            );
+          }
+        }
+        [prev, curr] = [curr, prev];
+      }
+      
+      return prev[n];
+    }
+
+    function longestCommonSubsequenceLength(a, b) {
+      if (a.length === 0 || b.length === 0) return 0;
+      
+      let prev = new Array(b.length + 1).fill(0);
+      let curr = new Array(b.length + 1).fill(0);
+      
+      for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+          if (a[i - 1] === b[j - 1]) {
+            curr[j] = prev[j - 1] + 1;
+          } else {
+            curr[j] = Math.max(prev[j], curr[j - 1]);
+          }
+        }
+        [prev, curr] = [curr, prev];
+      }
+      
+      return prev[b.length];
+    }
+
+    function countChanges(oldText, newText) {
+      if (!oldText || !newText) return 0;
+      if (oldText === newText) return 0;
+      
+      const useCharacterLevel = oldText.length < 1000 || newText.length < 1000;
+      
+      if (useCharacterLevel) {
+        return countCharacterChanges(oldText, newText);
+      }
+      
+      const oldWords = oldText.split(/\s+/);
+      const newWords = newText.split(/\s+/);
+      
+      const lcsLength = longestCommonSubsequenceLength(oldWords, newWords);
+      const added = newWords.length - lcsLength;
+      const removed = oldWords.length - lcsLength;
+      
+      return added + removed;
+    }
+
+    function showResult(elementId, message, type = 'info') {
+      const div = document.getElementById(elementId);
+      div.className = `result ${type}`;
+      div.textContent = message;
+    }
+
+    window.testSingleChar = function() {
+      showResult('result1', 'Running test...', 'info');
+      
+      const tests = [
+        { name: 'Add 1 char', old: 'Hello', new: 'Hellox', expect: true },
+        { name: 'Remove 1 char', old: 'Hello', new: 'Hell', expect: true },
+        { name: 'Change 1 char', old: 'Hello', new: 'Hallo', expect: true },
+        { name: 'No change', old: 'Hello', new: 'Hello', expect: false }
+      ];
+
+      let passed = 0;
+      let failed = 0;
+      let results = [];
+
+      for (const test of tests) {
+        const changes = countChanges(test.old, test.new);
+        const detected = changes > 0;
+        const match = detected === test.expect;
+        
+        if (match) {
+          passed++;
+          results.push(`✓ ${test.name}: ${detected ? 'detected' : 'not detected'} (${changes} changes)`);
+        } else {
+          failed++;
+          results.push(`✗ ${test.name}: expected ${test.expect ? 'detected' : 'not detected'}, got ${detected ? 'detected' : 'not detected'}`);
+        }
+      }
+
+      const message = results.join('\n') + `\n\nResult: ${passed} passed, ${failed} failed`;
+      showResult('result1', message, failed === 0 ? 'pass' : 'fail');
+    };
+
+    window.testMultiple = function() {
+      showResult('result2', 'Running test...', 'info');
+      
+      const scenarios = [
+        { name: 'Start of text', old: 'Hello', new: 'Xello' },
+        { name: 'End of text', old: 'Hello', new: 'Hellox' },
+        { name: 'Middle of text', old: 'Hello', new: 'Helxo' },
+        { name: 'Space change', old: 'Hello world', new: 'Hello  world' },
+        { name: 'Case change', old: 'Hello', new: 'hello' },
+        { name: 'Number change', old: 'Price: $100', new: 'Price: $101' },
+        { name: 'Punctuation', old: 'Hello.', new: 'Hello!' }
+      ];
+
+      let results = [];
+      let allPassed = true;
+
+      for (const scenario of scenarios) {
+        const changes = countChanges(scenario.old, scenario.new);
+        const detected = changes > 0;
+        
+        if (detected) {
+          results.push(`✓ ${scenario.name}: Detected (${changes} changes)`);
+        } else {
+          results.push(`✗ ${scenario.name}: NOT detected`);
+          allPassed = false;
+        }
+      }
+
+      const message = results.join('\n') + `\n\nOverall: ${allPassed ? 'All passed!' : 'Some failed'}`;
+      showResult('result2', message, allPassed ? 'pass' : 'fail');
+    };
+
+    window.testHTML = function() {
+      showResult('result3', 'Running test...', 'info');
+      
+      const oldHTML = '<html><body><h1>Title</h1><p>Content here</p></body></html>';
+      const newHTML1 = '<html><body><h1>Title</h1><p>Content herex</p></body></html>'; // 1 char added
+      const newHTML2 = '<html><body><h1>Title</h1><p>Content her</p></body></html>'; // 1 char removed
+      const newHTML3 = '<html><body><h1>Title</h1><p>Content therx</p></body></html>'; // 1 char changed
+
+      const oldText = extractText(oldHTML);
+      const newText1 = extractText(newHTML1);
+      const newText2 = extractText(newHTML2);
+      const newText3 = extractText(newHTML3);
+
+      const results = [];
+      let allPassed = true;
+
+      const test1 = countChanges(oldText, newText1) > 0;
+      results.push(`HTML 1 char added: ${test1 ? '✓ Detected' : '✗ Missed'}`);
+      if (!test1) allPassed = false;
+
+      const test2 = countChanges(oldText, newText2) > 0;
+      results.push(`HTML 1 char removed: ${test2 ? '✓ Detected' : '✗ Missed'}`);
+      if (!test2) allPassed = false;
+
+      const test3 = countChanges(oldText, newText3) > 0;
+      results.push(`HTML 1 char changed: ${test3 ? '✓ Detected' : '✗ Missed'}`);
+      if (!test3) allPassed = false;
+
+      const message = results.join('\n') + `\n\nOverall: ${allPassed ? 'All passed!' : 'Some failed'}`;
+      showResult('result3', message, allPassed ? 'pass' : 'fail');
+    };
+  </script>
+</body>
+</html>

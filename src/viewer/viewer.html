@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Changes - Page Watch</title>
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <div class="viewer-container">
+    <!-- Header -->
+    <header class="viewer-header">
+      <div class="header-info">
+        <h1 id="pageTitle">Loading...</h1>
+        <a id="pageUrl" href="#" target="_blank" class="page-link"></a>
+      </div>
+      <div class="header-actions">
+        <button id="viewModeBtn" class="btn secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <span id="viewModeText">Show Side by Side</span>
+        </button>
+        <button id="openPageBtn" class="btn primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          Open Page
+        </button>
+      </div>
+    </header>
+
+    <!-- Content Area -->
+    <main class="viewer-content" id="viewerContent">
+      <!-- Single view (highlighted) -->
+      <div class="view-panel single-view" id="singleView">
+        <div class="panel-header">
+          <span class="panel-title">Changes Highlighted</span>
+          <span id="changeInfo" class="change-info"></span>
+        </div>
+        <iframe id="contentFrame" class="content-frame" sandbox="allow-same-origin allow-scripts"></iframe>
+      </div>
+
+      <!-- Side by side view (hidden by default) -->
+      <div class="side-by-side hidden" id="sideBySide">
+        <div class="view-panel">
+          <div class="panel-header">
+            <span class="panel-title">Previous Version</span>
+            <span id="oldTime" class="time-info"></span>
+          </div>
+          <iframe id="oldFrame" class="content-frame" sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
+        <div class="view-panel">
+          <div class="panel-header">
+            <span class="panel-title">Current Version</span>
+            <span id="newTime" class="time-info"></span>
+          </div>
+          <iframe id="newFrame" class="content-frame" sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
+      </div>
+    </main>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="loading-state">
+      <div class="spinner-large"></div>
+      <p>Loading changes...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="error-state hidden">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <p id="errorMessage">Could not load page changes</p>
+    </div>
+  </div>
+
+  <script src="viewer.js" type="module"></script>
+</body>
+</html>

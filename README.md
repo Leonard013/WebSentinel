@@ -20,28 +20,6 @@ I decided to move away from Firefox but i wanted to bring with me the best exten
    - **Low** - Only major updates
 5. Click **Save**
 
-The extension will automatically scan pages based on your scan interval settings.
-
-## Testing
-
-### Quick Test (30 seconds)
-
-1. Open `test/simple-test.html` in Chrome
-2. Click the test buttons
-3. Verify all tests pass (green)
-
-### Full Test Suite
-
-1. Open `test/run-tests.html` in Chrome
-2. Click **Run All Tests**
-3. Review results
-
-Tests verify:
-- ✅ Single character detection
-- ✅ Various change scenarios
-- ✅ Performance benchmarks
-- ✅ Edge cases
-
 ## Project Structure
 
 ```

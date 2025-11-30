@@ -1,5 +1,7 @@
 # WebSentinel
 
+I decided to move away from Firefox but i wanted to bring with me the best extension I've ever had https://github.com/sneakypete81/updatescanner?tab=readme-ov-file#readme
+
 ## Installation
 
 1. Open Chrome and navigate to `chrome://extensions/`
@@ -40,29 +42,6 @@ Tests verify:
 - ✅ Performance benchmarks
 - ✅ Edge cases
 
-## Usage
-
-### Viewing Changes
-
-When a page changes:
-- A badge appears on the extension icon
-- You receive a browser notification
-- The page is highlighted in the list
-- Click it to see the diff view
-
-### Diff Viewer
-
-- **Highlighted View** - Shows changes with yellow highlights
-- **Side-by-Side** - Compare old vs new versions
-- Click **Show Side by Side** to toggle views
-
-### Settings
-
-Each page can be configured with:
-- **Scan Interval** - How often to check (5 min to daily)
-- **Change Sensitivity** - How much change triggers a notification
-- **Manual Scan** - Click the refresh icon to scan immediately
-
 ## Project Structure
 
 ```
@@ -76,11 +55,6 @@ new_version/
 │   └── viewer/           # Diff viewer
 └── test/                 # Test files
 ```
-
-## Requirements
-
-- Chrome 88+ (Manifest V3)
-- No external dependencies
 
 ## License
 

@@ -5,7 +5,7 @@
 import { PageStore, Page } from './page.js';
 
 const BACKUP_VERSION = 1;
-const BACKUP_ID = 'pagewatch-backup';
+const BACKUP_ID = 'WebSentinel-backup';
 
 /**
  * Create a JSON backup of all pages
@@ -67,7 +67,7 @@ export function downloadBackup(json) {
   
   const a = document.createElement('a');
   a.href = url;
-  a.download = `pagewatch-backup-${date}.json`;
+  a.download = `WebSentinel-backup-${date}.json`;
   a.click();
   
   URL.revokeObjectURL(url);

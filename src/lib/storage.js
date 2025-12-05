@@ -2,7 +2,7 @@
  * Storage module - Simple wrapper around Chrome storage API
  */
 
-const DB_NAME = 'PageWatchDB';
+const DB_NAME = 'WebSentinelDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'html';
 

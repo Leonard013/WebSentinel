@@ -2,7 +2,7 @@
  * Notifications module - Show browser notifications for updates
  */
 
-const NOTIFICATION_ID = 'pagewatch-update';
+const NOTIFICATION_ID = 'WebSentinel-update';
 
 /**
  * Show a notification about page updates

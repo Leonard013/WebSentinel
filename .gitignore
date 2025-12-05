@@ -1,18 +1,31 @@
+# Build artifacts
+build/
+*.zip
+WebSentinel-*.zip
+
 # OS files
 .DS_Store
 Thumbs.db
-
-# Editor files
-.vscode/
-.idea/
 *.swp
 *.swo
 *~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
 # Logs
 *.log
 npm-debug.log*
 
+# Node modules (if you add any in the future)
+node_modules/
+
+# Test coverage
+coverage/
+
 # Temporary files
-*.tmp
-*.temp
+tmp/
+temp/

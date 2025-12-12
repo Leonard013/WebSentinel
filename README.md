@@ -15,7 +15,7 @@ Since this extension is not yet on the Chrome Web Store, you can install it manu
 
 1.  Download this repository or clone it:
     ```bash
-    git clone https://github.com/yourusername/websentinel.git
+    git clone https://github.com/Leonard013/WebSentinel
     ```
 2.  Open Chrome and navigate to `chrome://extensions/`
 3.  Enable **Developer mode** (toggle in the top-right corner).

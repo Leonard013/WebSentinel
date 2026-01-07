@@ -7,7 +7,7 @@
  */
 export function extractText(html) {
   if (!html) return '';
-  
+
   return html
     // Remove script and style content
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -32,23 +32,23 @@ export function extractText(html) {
 export function countChanges(oldText, newText) {
   if (!oldText || !newText) return 0;
   if (oldText === newText) return 0;
-  
+
   // For very small texts or when we need precision, use character-level diff
   // For larger texts, use word-level for performance
   const useCharacterLevel = oldText.length < 1000 || newText.length < 1000;
-  
+
   if (useCharacterLevel) {
     return countCharacterChanges(oldText, newText);
   }
-  
+
   // Word-based counting for larger texts
   const oldWords = oldText.split(/\s+/);
   const newWords = newText.split(/\s+/);
-  
+
   const lcsLength = longestCommonSubsequenceLength(oldWords, newWords);
   const added = newWords.length - lcsLength;
   const removed = oldWords.length - lcsLength;
-  
+
   return added + removed;
 }
 
@@ -60,26 +60,26 @@ function countCharacterChanges(oldText, newText) {
   // Count insertions, deletions, and substitutions
   const m = oldText.length;
   const n = newText.length;
-  
+
   // If texts are very different in length, use simpler calculation
   if (Math.abs(m - n) > Math.max(m, n) * 0.5) {
     return Math.max(m, n);
   }
-  
+
   // Use dynamic programming for edit distance
   // But we'll optimize for memory
   if (m === 0) return n;
   if (n === 0) return m;
-  
+
   // Use two rows for memory efficiency
   let prev = new Array(n + 1).fill(0);
   let curr = new Array(n + 1).fill(0);
-  
+
   // Initialize first row
   for (let j = 0; j <= n; j++) {
     prev[j] = j;
   }
-  
+
   // Fill the matrix
   for (let i = 1; i <= m; i++) {
     curr[0] = i;
@@ -96,7 +96,7 @@ function countCharacterChanges(oldText, newText) {
     }
     [prev, curr] = [curr, prev];
   }
-  
+
   return prev[n];
 }
 
@@ -105,11 +105,11 @@ function countCharacterChanges(oldText, newText) {
  */
 function longestCommonSubsequenceLength(a, b) {
   if (a.length === 0 || b.length === 0) return 0;
-  
+
   // Use two rows instead of full matrix for memory efficiency
   let prev = new Array(b.length + 1).fill(0);
   let curr = new Array(b.length + 1).fill(0);
-  
+
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
       if (a[i - 1] === b[j - 1]) {
@@ -120,7 +120,7 @@ function longestCommonSubsequenceLength(a, b) {
     }
     [prev, curr] = [curr, prev];
   }
-  
+
   return prev[b.length];
 }
 
@@ -185,17 +185,18 @@ function computeDiff(oldTokens, newTokens) {
     if (token.type !== 'word') {
       return { ...token, status: 'unchanged' };
     }
-    
+
     const isNew = !oldSet.has(token.value);
-    return { 
-      ...token, 
-      status: isNew ? 'added' : 'unchanged' 
+    return {
+      ...token,
+      status: isNew ? 'added' : 'unchanged'
     };
   });
 }
 
 /**
  * Build highlighted HTML from diff result
+ * Properly closes highlight spans before spaces and HTML tags to maintain valid DOM structure
  */
 function buildHighlightedHtml(diff, color) {
   let result = '';
@@ -208,8 +209,25 @@ function buildHighlightedHtml(diff, color) {
         inHighlight = true;
       }
       result += token.value;
+    } else if (token.type === 'space') {
+      // Always close highlight before space to prevent spaces being included in highlight
+      // and to ensure proper rendering
+      if (inHighlight) {
+        result += '</span>';
+        inHighlight = false;
+      }
+      result += token.value;
+    } else if (token.type === 'tag') {
+      // Close highlight before any HTML tag to prevent spans crossing element boundaries
+      // This is critical to maintain valid DOM structure
+      if (inHighlight) {
+        result += '</span>';
+        inHighlight = false;
+      }
+      result += token.value;
     } else {
-      if (inHighlight && token.type === 'word') {
+      // Unchanged word
+      if (inHighlight) {
         result += '</span>';
         inHighlight = false;
       }

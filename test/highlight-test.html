@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Highlight Test - Page Watch</title>
+  <style>
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #0f0f13;
+      color: #f5f5f7;
+    }
+    h1 { color: #6366f1; }
+    .test-section {
+      background: #1a1a21;
+      border: 1px solid #2d2d3a;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .test-result {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+    }
+    .test-result.pass {
+      background: rgba(34, 197, 94, 0.2);
+      border-left: 3px solid #22c55e;
+    }
+    .test-result.fail {
+      background: rgba(239, 68, 68, 0.2);
+      border-left: 3px solid #ef4444;
+    }
+    .test-result.info {
+      background: rgba(99, 102, 241, 0.2);
+      border-left: 3px solid #6366f1;
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #818cf8;
+    }
+    #output {
+      max-height: 600px;
+      overflow-y: auto;
+      background: #0f0f13;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .preview-frame {
+      width: 100%;
+      height: 300px;
+      border: 2px solid #2d2d3a;
+      border-radius: 8px;
+      background: white;
+      margin-top: 10px;
+    }
+    .code-preview {
+      background: #1a1a21;
+      padding: 10px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 10px 0;
+      max-height: 200px;
+      overflow: auto;
+    }
+    .side-by-side {
+      display: flex;
+      gap: 20px;
+    }
+    .side-by-side > div {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Highlight Rendering Test</h1>
+  
+  <div class="test-section">
+    <h2>Test Cases</h2>
+    <button onclick="runHighlightTests()">Run Highlight Tests</button>
+    <button onclick="clearOutput()" style="background: #71717a;">Clear Output</button>
+  </div>
+
+  <div id="output"></div>
+  
+  <div class="test-section">
+    <h2>Live Preview</h2>
+    <div id="previewArea"></div>
+  </div>
+
+  <script type="module">
+    // Inline diff functions to test
+    function tokenize(html) {
+      const tokens = [];
+      const regex = /(<[^>]+>)|([^<\s]+)|(\s+)/g;
+      let match;
+
+      while ((match = regex.exec(html)) !== null) {
+        const [full, tag, word, space] = match;
+        if (tag) {
+          tokens.push({ type: 'tag', value: tag });
+        } else if (word) {
+          tokens.push({ type: 'word', value: word });
+        } else if (space) {
+          tokens.push({ type: 'space', value: space });
+        }
+      }
+
+      return tokens;
+    }
+
+    function computeDiff(oldTokens, newTokens) {
+      const oldWords = oldTokens.filter(t => t.type === 'word').map(t => t.value);
+      const newWords = newTokens.filter(t => t.type === 'word').map(t => t.value);
+
+      const oldSet = new Set(oldWords);
+      const newSet = new Set(newWords);
+
+      return newTokens.map(token => {
+        if (token.type !== 'word') {
+          return { ...token, status: 'unchanged' };
+        }
+        
+        const isNew = !oldSet.has(token.value);
+        return { 
+          ...token, 
+          status: isNew ? 'added' : 'unchanged' 
+        };
+      });
+    }
+
+    // Current buggy implementation
+    function buildHighlightedHtmlBuggy(diff, color) {
+      let result = '';
+      let inHighlight = false;
+
+      for (const token of diff) {
+        if (token.status === 'added' && token.type === 'word') {
+          if (!inHighlight) {
+            result += `<span style="background-color: ${color};">`;
+            inHighlight = true;
+          }
+          result += token.value;
+        } else {
+          if (inHighlight && token.type === 'word') {
+            result += '</span>';
+            inHighlight = false;
+          }
+          result += token.value;
+        }
+      }
+
+      if (inHighlight) {
+        result += '</span>';
+      }
+
+      return result;
+    }
+
+    // Fixed implementation
+    function buildHighlightedHtmlFixed(diff, color) {
+      let result = '';
+      let inHighlight = false;
+
+      for (const token of diff) {
+        if (token.status === 'added' && token.type === 'word') {
+          if (!inHighlight) {
+            result += `<span style="background-color: ${color};">`;
+            inHighlight = true;
+          }
+          result += token.value;
+        } else if (token.type === 'space') {
+          // Always close highlight before space, add space, then reopen if next word is also added
+          if (inHighlight) {
+            result += '</span>';
+            inHighlight = false;
+          }
+          result += token.value;
+        } else if (token.type === 'tag') {
+          // Close highlight before any HTML tag to prevent breaking DOM structure
+          if (inHighlight) {
+            result += '</span>';
+            inHighlight = false;
+          }
+          result += token.value;
+        } else {
+          // Unchanged word
+          if (inHighlight) {
+            result += '</span>';
+            inHighlight = false;
+          }
+          result += token.value;
+        }
+      }
+
+      if (inHighlight) {
+        result += '</span>';
+      }
+
+      return result;
+    }
+
+    function highlightChangesBuggy(oldHtml, newHtml, highlightColor = '#ffff66') {
+      if (!oldHtml) return newHtml || '';
+      if (!newHtml) return '';
+      if (oldHtml === newHtml) return newHtml;
+
+      const oldWords = tokenize(oldHtml);
+      const newWords = tokenize(newHtml);
+      const diff = computeDiff(oldWords, newWords);
+      return buildHighlightedHtmlBuggy(diff, highlightColor);
+    }
+
+    function highlightChangesFixed(oldHtml, newHtml, highlightColor = '#ffff66') {
+      if (!oldHtml) return newHtml || '';
+      if (!newHtml) return '';
+      if (oldHtml === newHtml) return newHtml;
+
+      const oldWords = tokenize(oldHtml);
+      const newWords = tokenize(newHtml);
+      const diff = computeDiff(oldWords, newWords);
+      return buildHighlightedHtmlFixed(diff, highlightColor);
+    }
+
+    const output = document.getElementById('output');
+    const previewArea = document.getElementById('previewArea');
+
+    function log(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `test-result ${type}`;
+      div.textContent = message;
+      output.appendChild(div);
+    }
+
+    function clearOutput() {
+      output.innerHTML = '';
+      previewArea.innerHTML = '';
+    }
+
+    window.clearOutput = clearOutput;
+
+    function addPreview(title, oldHtml, newHtml, buggyResult, fixedResult) {
+      const container = document.createElement('div');
+      container.className = 'test-section';
+      container.innerHTML = `
+        <h3>${title}</h3>
+        <p><strong>Old HTML:</strong></p>
+        <div class="code-preview">${escapeHtml(oldHtml)}</div>
+        <p><strong>New HTML:</strong></p>
+        <div class="code-preview">${escapeHtml(newHtml)}</div>
+        <div class="side-by-side">
+          <div>
+            <p><strong>Buggy Result (Generated HTML):</strong></p>
+            <div class="code-preview">${escapeHtml(buggyResult)}</div>
+            <p><strong>Buggy Rendered:</strong></p>
+            <iframe class="preview-frame" id="buggy-${Date.now()}"></iframe>
+          </div>
+          <div>
+            <p><strong>Fixed Result (Generated HTML):</strong></p>
+            <div class="code-preview">${escapeHtml(fixedResult)}</div>
+            <p><strong>Fixed Rendered:</strong></p>
+            <iframe class="preview-frame" id="fixed-${Date.now()}"></iframe>
+          </div>
+        </div>
+      `;
+      previewArea.appendChild(container);
+      
+      // Set iframe content after adding to DOM
+      setTimeout(() => {
+        const frames = container.querySelectorAll('iframe');
+        setFrameContent(frames[0], buggyResult);
+        setFrameContent(frames[1], fixedResult);
+      }, 50);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function setFrameContent(frame, html) {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+      } catch (e) {
+        console.error('Error setting frame content:', e);
+      }
+    }
+
+    async function runHighlightTests() {
+      clearOutput();
+      log('Running Highlight Rendering Tests...', 'info');
+
+      const testCases = [
+        {
+          name: 'Simple word addition',
+          oldHtml: '<p>Hello world</p>',
+          newHtml: '<p>Hello beautiful world</p>'
+        },
+        {
+          name: 'Word with HTML tags',
+          oldHtml: '<div><p>Hello</p></div>',
+          newHtml: '<div><p>Hello</p><p>World</p></div>'
+        },
+        {
+          name: 'Multiple consecutive new words',
+          oldHtml: '<p>The cat</p>',
+          newHtml: '<p>The big fluffy cat</p>'
+        },
+        {
+          name: 'Complex nested HTML',
+          oldHtml: '<div class="container"><h1>Title</h1><p>Text here</p></div>',
+          newHtml: '<div class="container"><h1>New Title</h1><p>Text here updated</p></div>'
+        },
+        {
+          name: 'List items',
+          oldHtml: '<ul><li>Item 1</li><li>Item 2</li></ul>',
+          newHtml: '<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>'
+        },
+        {
+          name: 'Inline elements',
+          oldHtml: '<p>This is <strong>bold</strong> text</p>',
+          newHtml: '<p>This is <strong>bold</strong> and <em>italic</em> text</p>'
+        },
+        {
+          name: 'Link in text',
+          oldHtml: '<p>Visit our website</p>',
+          newHtml: '<p>Visit our <a href="#">amazing website</a></p>'
+        },
+        {
+          name: 'Full page HTML',
+          oldHtml: '<!DOCTYPE html><html><head><title>Old</title></head><body><h1>Page</h1><p>Content</p></body></html>',
+          newHtml: '<!DOCTYPE html><html><head><title>New</title></head><body><h1>Updated Page</h1><p>New content here</p></body></html>'
+        }
+      ];
+
+      for (const test of testCases) {
+        log(`\nTesting: ${test.name}`, 'info');
+        
+        const buggyResult = highlightChangesBuggy(test.oldHtml, test.newHtml, '#ffff66');
+        const fixedResult = highlightChangesFixed(test.oldHtml, test.newHtml, '#ffff66');
+        
+        // Check if spans cross tag boundaries (bug indicator)
+        const buggyHasIssue = /style="[^"]*">[^<]*<[^s\/]/.test(buggyResult) || 
+                              /<span[^>]*>[^<]*<(?!\/span)/.test(buggyResult);
+        
+        if (buggyHasIssue) {
+          log(`  ⚠ Buggy version may have DOM structure issues`, 'fail');
+        } else {
+          log(`  ✓ Buggy version appears OK for this case`, 'pass');
+        }
+        
+        addPreview(test.name, test.oldHtml, test.newHtml, buggyResult, fixedResult);
+      }
+
+      log('\n✅ Tests completed - Check preview below', 'pass');
+    }
+
+    window.runHighlightTests = runHighlightTests;
+
+    // Auto-run on load
+    setTimeout(() => {
+      log('🔍 Highlight Rendering Test Ready', 'info');
+      log('Click "Run Highlight Tests" to compare buggy vs fixed implementations', 'info');
+    }, 100);
+  </script>
+</body>
+</html>

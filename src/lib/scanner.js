@@ -22,18 +22,45 @@ export async function scanPage(page) {
     
     let response;
     try {
-      response = await fetch(page.url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      // Retry loop for fetch
+      let lastError;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          response = await fetch(page.url, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          
+          if (response.ok) break; // Success, exit loop
+          
+          // If 4xx/5xx, maybe don't retry immediately unless it's 503? 
+          // But "Failed to fetch" usually throws, so we land in catch block.
+          // If we get here, we have a response, just not ok.
+          if (response.status >= 500) {
+             throw new Error(`HTTP ${response.status}`);
+          }
+          // For 4xx errors, retrying usually won't help, so stop.
+          break;
+          
+        } catch (fetchError) {
+          lastError = fetchError;
+          if (attempt < 3 && fetchError.name !== 'AbortError') {
+            console.log(`[Scanner] Fetch attempt ${attempt} failed for ${page.title}, retrying...`);
+            await sleep(1000 * attempt); // Linear backoff: 1s, 2s
+            continue;
+          }
+          throw fetchError;
         }
-      });
+      }
     } finally {
       clearTimeout(timeoutId);
     }
     
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    if (!response || !response.ok) {
+      throw new Error(response ? `HTTP ${response.status}: ${response.statusText}` : 'Fetch failed after retries');
     }
 
     const newHtml = await response.text();

@@ -134,17 +134,39 @@ function longestCommonSubsequenceLength(a, b) {
 export function highlightChanges(oldHtml, newHtml, highlightColor = '#ffff66') {
   if (!oldHtml) return newHtml || '';
   if (!newHtml) return '';
-  if (oldHtml === newHtml) return newHtml;
+  
+  // Sanitize HTML before processing to prevent CSP violations and script execution
+  // We need to do this for both old and new HTML
+  const cleanOld = sanitizeHtml(oldHtml);
+  const cleanNew = sanitizeHtml(newHtml);
+  
+  if (cleanOld === cleanNew) return cleanNew;
 
   // Split into words while preserving HTML structure
-  const oldWords = tokenize(oldHtml);
-  const newWords = tokenize(newHtml);
+  const oldWords = tokenize(cleanOld);
+  const newWords = tokenize(cleanNew);
 
   // Find differences
   const diff = computeDiff(oldWords, newWords);
 
   // Build highlighted output
   return buildHighlightedHtml(diff, highlightColor);
+}
+
+/**
+ * Remove scripts, styles, and other dangerous elements from HTML
+ */
+function sanitizeHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<object[\s\S]*?<\/object>/gi, '')
+    .replace(/<embed[\s\S]*?<\/embed>/gi, '')
+    // Also remove inline event handlers like onclick="..."
+    .replace(/\s+on\w+="[^"]*"/gi, '')
+    .replace(/\s+on\w+='[^']*'/gi, '');
 }
 
 /**

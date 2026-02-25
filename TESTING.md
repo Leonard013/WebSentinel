@@ -1,4 +1,4 @@
-# Testing Guide for Page Watch
+# Testing Guide for WebSentinel
 
 ## Quick Start
 

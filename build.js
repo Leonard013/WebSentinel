@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Build script for Page Watch Chrome Extension
- * Creates a .zip file ready for Chrome Web Store submission
+ * Build script for WebSentinel Extension
+ * Creates a .zip file ready for Chrome Web Store or Firefox Add-ons submission
+ *
+ * Usage:
+ *   node build.js              # Build for Chrome (default)
+ *   node build.js --chrome     # Build for Chrome
+ *   node build.js --firefox    # Build for Firefox
+ *   node build.js --all        # Build for both
  */
 
 const fs = require('fs');
@@ -12,35 +18,16 @@ const { execSync } = require('child_process');
 const EXTENSION_NAME = 'WebSentinel';
 const BUILD_DIR = 'build';
 
-// Get version from manifest
-const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
-const VERSION = manifest.version;
-const ZIP_FILE = `${EXTENSION_NAME}-v${VERSION}.zip`;
+// Parse CLI arguments
+const args = process.argv.slice(2);
+const buildAll = args.includes('--all');
+const buildFirefox = buildAll || args.includes('--firefox');
+const buildChrome = buildAll || args.includes('--chrome') || (!buildFirefox);
 
-console.log(`🚀 Building Page Watch Extension v${VERSION}...`);
+// Files and directories to copy (shared between targets)
+const filesToCopy = ['LICENSE', 'README.md'];
+const dirsToCopy = ['icons', 'src'];
 
-// Clean previous build
-if (fs.existsSync(BUILD_DIR)) {
-  console.log('🧹 Cleaning previous build...');
-  fs.rmSync(BUILD_DIR, { recursive: true, force: true });
-}
-
-// Create build directory
-fs.mkdirSync(BUILD_DIR, { recursive: true });
-
-// Files and directories to copy
-const filesToCopy = [
-  'manifest.json',
-  'LICENSE',
-  'README.md'
-];
-
-const dirsToCopy = [
-  'icons',
-  'src'
-];
-
-// Files and patterns to exclude
 const excludePatterns = [
   /test/,
   /\.git/,
@@ -54,25 +41,6 @@ function shouldExclude(filePath) {
   return excludePatterns.some(pattern => pattern.test(filePath));
 }
 
-// Copy files
-console.log('📦 Copying files...');
-
-filesToCopy.forEach(file => {
-  if (fs.existsSync(file)) {
-    const dest = path.join(BUILD_DIR, file);
-    fs.copyFileSync(file, dest);
-    console.log(`  ✓ ${file}`);
-  }
-});
-
-// Copy directories
-dirsToCopy.forEach(dir => {
-  if (fs.existsSync(dir)) {
-    copyDirectory(dir, path.join(BUILD_DIR, dir));
-    console.log(`  ✓ ${dir}/`);
-  }
-});
-
 function copyDirectory(src, dest) {
   if (!fs.existsSync(dest)) {
     fs.mkdirSync(dest, { recursive: true });
@@ -84,16 +52,10 @@ function copyDirectory(src, dest) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
 
-    // Skip excluded files
-    if (shouldExclude(srcPath)) {
-      continue;
-    }
+    if (shouldExclude(srcPath)) continue;
 
     if (entry.isDirectory()) {
-      // Skip test directories
-      if (entry.name === 'test') {
-        continue;
-      }
+      if (entry.name === 'test') continue;
       copyDirectory(srcPath, destPath);
     } else {
       fs.copyFileSync(srcPath, destPath);
@@ -101,42 +63,81 @@ function copyDirectory(src, dest) {
   }
 }
 
-// Create zip file
-console.log('📦 Creating zip file...');
+function buildTarget(target) {
+  const manifestFile = target === 'firefox' ? 'manifest.firefox.json' : 'manifest.json';
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  const VERSION = manifest.version;
+  const suffix = target === 'firefox' ? '-firefox' : '';
+  const ZIP_FILE = `${EXTENSION_NAME}${suffix}-v${VERSION}.zip`;
+  const targetBuildDir = path.join(BUILD_DIR, target);
 
-try {
-  // Use zip command if available (Unix/Mac)
-  if (process.platform !== 'win32') {
-    execSync(`cd ${BUILD_DIR} && zip -r ../${ZIP_FILE} . -x "*.git*" -x "*.DS_Store" > /dev/null`, {
-      stdio: 'inherit'
-    });
-  } else {
-    // Windows: use PowerShell Compress-Archive
-    const buildPath = path.resolve(BUILD_DIR);
-    const zipPath = path.resolve(ZIP_FILE);
-    execSync(`powershell -Command "Compress-Archive -Path '${buildPath}\\*' -DestinationPath '${zipPath}' -Force"`, {
-      stdio: 'inherit'
-    });
+  console.log(`\n--- Building for ${target.charAt(0).toUpperCase() + target.slice(1)} ---`);
+  console.log(`  Version: ${VERSION}`);
+
+  // Clean previous build for this target
+  if (fs.existsSync(targetBuildDir)) {
+    fs.rmSync(targetBuildDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(targetBuildDir, { recursive: true });
+
+  // Copy manifest (always named manifest.json in output)
+  fs.copyFileSync(manifestFile, path.join(targetBuildDir, 'manifest.json'));
+  console.log(`  + manifest.json (from ${manifestFile})`);
+
+  // Copy shared files
+  filesToCopy.forEach(file => {
+    if (fs.existsSync(file)) {
+      fs.copyFileSync(file, path.join(targetBuildDir, file));
+      console.log(`  + ${file}`);
+    }
+  });
+
+  // Copy directories
+  dirsToCopy.forEach(dir => {
+    if (fs.existsSync(dir)) {
+      copyDirectory(dir, path.join(targetBuildDir, dir));
+      console.log(`  + ${dir}/`);
+    }
+  });
+
+  // Create zip
+  // Remove old zip if it exists
+  if (fs.existsSync(ZIP_FILE)) {
+    fs.unlinkSync(ZIP_FILE);
   }
 
-  // Get file size
-  const stats = fs.statSync(ZIP_FILE);
-  const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+  try {
+    if (process.platform !== 'win32') {
+      execSync(`cd "${targetBuildDir}" && zip -r "../../${ZIP_FILE}" . -x "*.git*" -x "*.DS_Store" > /dev/null`, {
+        stdio: 'inherit'
+      });
+    } else {
+      const fullBuildPath = path.resolve(targetBuildDir);
+      const zipPath = path.resolve(ZIP_FILE);
+      execSync(`powershell -Command "Compress-Archive -Path '${fullBuildPath}\\*' -DestinationPath '${zipPath}' -Force"`, {
+        stdio: 'inherit'
+      });
+    }
 
-  console.log('✅ Build complete!');
-  console.log(`📦 Extension package: ${ZIP_FILE}`);
-  console.log(`📏 File size: ${fileSizeMB} MB`);
-  console.log('');
-  console.log('📤 Ready for Chrome Web Store submission!');
-  console.log(`   Upload: ${ZIP_FILE}`);
+    const stats = fs.statSync(ZIP_FILE);
+    const fileSizeKB = (stats.size / 1024).toFixed(1);
+    console.log(`  -> ${ZIP_FILE} (${fileSizeKB} KB)`);
 
-} catch (error) {
-  console.error('❌ Error creating zip file:', error.message);
-  console.log('');
-  console.log('💡 Alternative: Manually zip the build/ directory');
-  process.exit(1);
+  } catch (error) {
+    console.error(`  ERROR creating zip: ${error.message}`);
+    process.exit(1);
+  }
 }
 
-// Clean up build directory (optional - comment out to keep for inspection)
-// fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+// Main
+console.log(`Building WebSentinel Extension...`);
 
+if (buildChrome) buildTarget('chrome');
+if (buildFirefox) buildTarget('firefox');
+
+// Clean up build directory
+if (fs.existsSync(BUILD_DIR)) {
+  fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+}
+
+console.log('\nDone!');

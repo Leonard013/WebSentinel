@@ -51,7 +51,7 @@ export const Storage = {
 
   async set(key, value) {
     try {
-      return chrome.storage.sync.set({ [key]: value });
+      return await chrome.storage.sync.set({ [key]: value });
     } catch (error) {
       // Fallback to local if sync fails (e.g., quota exceeded)
       console.warn('[Storage] Sync failed, falling back to local:', error);
@@ -73,7 +73,7 @@ export const Storage = {
 
   async getAll() {
     try {
-      return chrome.storage.sync.get(null);
+      return await chrome.storage.sync.get(null);
     } catch (error) {
       // Fallback to local if sync fails
       console.warn('[Storage] Sync getAll failed, falling back to local:', error);

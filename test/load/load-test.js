@@ -1,5 +1,5 @@
 /**
- * Load tests for Page Watch extension
+ * Load tests for WebSentinel extension
  * Tests performance and functionality under load
  */
 

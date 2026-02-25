@@ -1,5 +1,5 @@
 /**
- * Service Worker - Background script for Page Watch
+ * Service Worker - Background script for WebSentinel
  * Handles alarms, scanning, and message passing
  */
 
@@ -30,10 +30,13 @@ async function init() {
 
   // Handle notification clicks - open popup
   onNotificationClick(() => {
-    chrome.action.openPopup().catch(() => {
-      // Fallback: open as a tab if popup can't be opened
+    if (typeof chrome.action.openPopup === 'function') {
+      chrome.action.openPopup().catch(() => {
+        chrome.tabs.create({ url: 'src/popup/popup.html' });
+      });
+    } else {
       chrome.tabs.create({ url: 'src/popup/popup.html' });
-    });
+    }
   });
 
   // Listen for sync changes from other devices

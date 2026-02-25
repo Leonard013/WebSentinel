@@ -26,6 +26,14 @@ export function extractText(html) {
 }
 
 /**
+ * Strip numbers from text to ignore numeric changes
+ * Removes standalone numbers, prices, counters, timestamps, etc.
+ */
+export function stripNumbers(text) {
+  return text.replace(/\b\d[\d,.]*\b/g, '');
+}
+
+/**
  * Count the number of character changes between two texts
  * Uses a hybrid approach: character-level for small changes, word-level for large texts
  */
@@ -132,7 +140,7 @@ function longestCommonSubsequenceLength(a, b) {
  * @returns {string} - HTML with changes highlighted
  */
 export function highlightChanges(oldHtml, newHtml, highlightColor = '#ffff66') {
-  if (!oldHtml) return newHtml || '';
+  if (!oldHtml) return sanitizeHtml(newHtml) || '';
   if (!newHtml) return '';
   
   // Sanitize HTML before processing to prevent CSP violations and script execution
@@ -154,13 +162,13 @@ export function highlightChanges(oldHtml, newHtml, highlightColor = '#ffff66') {
 }
 
 /**
- * Remove scripts, styles, and other dangerous elements from HTML
+ * Remove scripts and other dangerous elements from HTML.
+ * Preserves <style> tags since CSS is needed for page rendering.
  */
-function sanitizeHtml(html) {
+export function sanitizeHtml(html) {
   if (!html) return '';
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
     .replace(/<object[\s\S]*?<\/object>/gi, '')
     .replace(/<embed[\s\S]*?<\/embed>/gi, '')
@@ -192,28 +200,64 @@ function tokenize(html) {
 }
 
 /**
- * Compute diff between two token arrays
+ * Compute diff between two token arrays using positional LCS matching.
+ * Unlike a simple Set lookup, this respects word order so that common words
+ * like "the", "a", "is" are correctly highlighted when they appear in new context.
  */
 function computeDiff(oldTokens, newTokens) {
   const oldWords = oldTokens.filter(t => t.type === 'word').map(t => t.value);
   const newWords = newTokens.filter(t => t.type === 'word').map(t => t.value);
 
-  // Create word index sets for quick lookup
-  const oldSet = new Set(oldWords);
-  const newSet = new Set(newWords);
+  // Find which indices in newWords are part of the longest common subsequence
+  const matchedNewIndices = computeLCSIndices(oldWords, newWords);
 
-  // Mark tokens as added/unchanged
+  // Map word index back to token status
+  let wordIdx = 0;
   return newTokens.map(token => {
     if (token.type !== 'word') {
       return { ...token, status: 'unchanged' };
     }
-
-    const isNew = !oldSet.has(token.value);
-    return {
-      ...token,
-      status: isNew ? 'added' : 'unchanged'
-    };
+    const status = matchedNewIndices.has(wordIdx) ? 'unchanged' : 'added';
+    wordIdx++;
+    return { ...token, status };
   });
+}
+
+/**
+ * Greedy forward LCS matching with position index.
+ * Returns a Set of indices in newWords that are positionally matched to oldWords.
+ * Uses a word→positions map + binary search for O(n log m) performance.
+ */
+function computeLCSIndices(oldWords, newWords) {
+  // Build index: word → sorted list of positions in oldWords
+  const posMap = new Map();
+  for (let i = 0; i < oldWords.length; i++) {
+    if (!posMap.has(oldWords[i])) posMap.set(oldWords[i], []);
+    posMap.get(oldWords[i]).push(i);
+  }
+
+  const matched = new Set();
+  let oldIdx = 0;
+
+  for (let newIdx = 0; newIdx < newWords.length; newIdx++) {
+    const positions = posMap.get(newWords[newIdx]);
+    if (!positions) continue;
+
+    // Binary search for smallest position >= oldIdx
+    let lo = 0, hi = positions.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (positions[mid] < oldIdx) lo = mid + 1;
+      else hi = mid;
+    }
+
+    if (lo < positions.length) {
+      matched.add(newIdx);
+      oldIdx = positions[lo] + 1;
+    }
+  }
+
+  return matched;
 }
 
 /**

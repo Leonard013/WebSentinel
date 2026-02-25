@@ -18,9 +18,10 @@ export async function showUpdateNotification(count) {
   await chrome.notifications.create(NOTIFICATION_ID, {
     type: 'basic',
     iconUrl: '/icons/icon-128.png',
-    title: 'Page Watch',
+    title: 'WebSentinel',
     message: message,
-    priority: 1
+    priority: 1,
+    requireInteraction: true
   });
 }
 

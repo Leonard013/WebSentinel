@@ -3,7 +3,7 @@
  */
 
 import { PageHtml } from '../lib/page.js';
-import { highlightChanges, extractText } from '../lib/diff.js';
+import { highlightChanges, extractText, sanitizeHtml } from '../lib/diff.js';
 
 // DOM Elements
 const pageTitle = document.getElementById('pageTitle');
@@ -55,7 +55,7 @@ async function init() {
     pageTitle.textContent = page.title;
     pageUrl.textContent = page.url;
     pageUrl.href = page.url;
-    document.title = `${page.title} - Page Watch`;
+    document.title = `${page.title} - WebSentinel`;
 
     // Load HTML content
     oldHtml = await PageHtml.loadOld(pageId);
@@ -107,7 +107,7 @@ function renderContent() {
  * Render highlighted diff view
  */
 function renderHighlighted() {
-  const highlighted = oldHtml 
+  const highlighted = oldHtml
     ? highlightChanges(oldHtml, newHtml, '#ffff66')
     : newHtml;
 
@@ -130,7 +130,7 @@ function renderSideBySide() {
   // Left: old version (original, no highlighting)
   // Right: new version with added/changed content highlighted in yellow
   const highlightedNew = highlightChanges(oldHtml, newHtml, '#ffff66');
-  
+
   // Show old version as-is (or with removed content highlighted in red)
   const highlightedOld = highlightRemoved(oldHtml, newHtml);
   
@@ -147,11 +147,12 @@ function highlightRemoved(oldHtml, newHtml) {
   
   // Swap the order: highlight what's in old but not in new (removals)
   // Use red color to indicate removed content
-  return highlightChanges(newHtml, oldHtml, '#ffcccc');
+  return highlightChanges(newHtml, oldHtml, '#f8d7da');
 }
 
 /**
- * Set content of an iframe
+ * Set content of an iframe, injecting a <base> tag so relative URLs
+ * (stylesheets, images, fonts) resolve against the original page URL.
  */
 function setFrameContent(frame, html) {
   try {
@@ -161,9 +162,23 @@ function setFrameContent(frame, html) {
       setTimeout(() => setFrameContent(frame, html), 100);
       return;
     }
-    
+
+    // Sanitize to strip scripts/iframes/embeds — prevents CSP violations in the iframe
+    let content = sanitizeHtml(html);
+    // Inject <base> so relative resource URLs resolve against the original page
+    if (page?.url) {
+      const safeUrl = page.url.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const baseTag = `<base href="${safeUrl}">`;
+      // Insert into <head> if present, otherwise prepend
+      if (/<head[\s>]/i.test(content)) {
+        content = content.replace(/(<head[\s>][^>]*>)/i, `$1${baseTag}`);
+      } else {
+        content = baseTag + content;
+      }
+    }
+
     doc.open();
-    doc.write(html);
+    doc.write(content);
     doc.close();
   } catch (error) {
     console.error('Error setting frame content:', error);

@@ -187,6 +187,45 @@ body {
   color: var(--text-secondary);
 }
 
+/* === Search Bar === */
+.search-bar {
+  position: relative;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.search-bar .search-icon {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.search-bar input:focus {
+  border-color: var(--accent);
+}
+
+.search-bar input::placeholder {
+  color: var(--text-muted);
+}
+
 /* === Page List === */
 .page-list {
   flex: 1;
@@ -224,7 +263,6 @@ body {
 .page-card:hover {
   background: var(--bg-tertiary);
   border-color: var(--accent);
-  transform: translateX(4px);
 }
 
 .page-card.changed {
@@ -282,6 +320,7 @@ body {
 .page-actions {
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition);
 }
@@ -379,6 +418,8 @@ body {
 .modal-content {
   width: calc(100% - 32px);
   max-width: 360px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -454,6 +495,22 @@ form {
   color: var(--text-muted);
   cursor: help;
   vertical-align: middle;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .form-actions {

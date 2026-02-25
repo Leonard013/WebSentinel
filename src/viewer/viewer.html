@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Page Changes - Page Watch</title>
+  <title>Page Changes - WebSentinel</title>
   <link rel="stylesheet" href="viewer.css">
 </head>
 <body>
@@ -36,9 +36,13 @@
       <div class="view-panel single-view" id="singleView">
         <div class="panel-header">
           <span class="panel-title">Changes Highlighted</span>
+          <div class="diff-legend">
+            <span class="legend-added">Added</span>
+            <span class="legend-removed">Removed</span>
+          </div>
           <span id="changeInfo" class="change-info"></span>
         </div>
-        <iframe id="contentFrame" class="content-frame" sandbox="allow-same-origin allow-scripts"></iframe>
+        <iframe id="contentFrame" class="content-frame" sandbox="allow-same-origin"></iframe>
       </div>
 
       <!-- Side by side view (hidden by default) -->
@@ -48,14 +52,14 @@
             <span class="panel-title">Previous Version</span>
             <span id="oldTime" class="time-info"></span>
           </div>
-          <iframe id="oldFrame" class="content-frame" sandbox="allow-same-origin allow-scripts"></iframe>
+          <iframe id="oldFrame" class="content-frame" sandbox="allow-same-origin"></iframe>
         </div>
         <div class="view-panel">
           <div class="panel-header">
             <span class="panel-title">Current Version</span>
             <span id="newTime" class="time-info"></span>
           </div>
-          <iframe id="newFrame" class="content-frame" sandbox="allow-same-origin allow-scripts"></iframe>
+          <iframe id="newFrame" class="content-frame" sandbox="allow-same-origin"></iframe>
         </div>
       </div>
     </main>

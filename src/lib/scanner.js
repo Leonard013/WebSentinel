@@ -3,7 +3,7 @@
  */
 
 import { Page, PageState, PageHtml } from './page.js';
-import { extractText, countChanges } from './diff.js';
+import { extractText, countChanges, stripNumbers } from './diff.js';
 
 const SCAN_DELAY_MS = 2000;
 
@@ -66,12 +66,16 @@ export async function scanPage(page) {
     const newHtml = await response.text();
     const previousHtml = await PageHtml.loadNew(page.id);
     
-    const hasChanged = detectChange(previousHtml, newHtml, page.changeThreshold);
+    const hasChanged = detectChange(previousHtml, newHtml, page.changeThreshold, {
+      ignoreNumbers: page.ignoreNumbers,
+      textOnlyMode: page.textOnlyMode
+    });
 
     if (hasChanged && !page.isChanged()) {
       // New change detected - save current as old for diff view
       if (previousHtml) {
         await PageHtml.saveOld(page.id, previousHtml);
+        page.oldScanTime = page.lastScanTime;
       }
       page.state = PageState.CHANGED;
       page.lastChangeTime = Date.now();
@@ -131,12 +135,20 @@ export async function scanPages(pages) {
 /**
  * Detect if content has changed significantly
  */
-function detectChange(oldHtml, newHtml, threshold) {
+function detectChange(oldHtml, newHtml, threshold, options = {}) {
   if (!oldHtml) return false;
-  if (oldHtml === newHtml) return false;
 
-  const oldText = extractText(oldHtml);
-  const newText = extractText(newHtml);
+  // When textOnlyMode is enabled, skip the raw HTML comparison and go
+  // straight to text extraction. Otherwise short-circuit on identical HTML.
+  if (!options.textOnlyMode && oldHtml === newHtml) return false;
+
+  let oldText = extractText(oldHtml);
+  let newText = extractText(newHtml);
+
+  if (options.ignoreNumbers) {
+    oldText = stripNumbers(oldText);
+    newText = stripNumbers(newText);
+  }
 
   if (oldText === newText) return false;
 

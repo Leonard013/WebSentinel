@@ -17,7 +17,9 @@ export function createBackup(store) {
     title: page.title,
     url: page.url,
     scanIntervalMinutes: page.scanIntervalMinutes,
-    changeThreshold: page.changeThreshold
+    changeThreshold: page.changeThreshold,
+    ignoreNumbers: page.ignoreNumbers,
+    textOnlyMode: page.textOnlyMode
   }));
 
   const backup = {
@@ -37,13 +39,29 @@ export function createBackup(store) {
  * @returns {Promise<number>} - Number of pages restored
  */
 export async function restoreBackup(store, json) {
-  const backup = JSON.parse(json);
+  let backup;
+  try {
+    backup = JSON.parse(json);
+  } catch (e) {
+    throw new Error('Invalid JSON in backup file');
+  }
 
   if (backup.id !== BACKUP_ID) {
     throw new Error('Invalid backup file');
   }
 
-  // Clear existing pages
+  if (!Array.isArray(backup.pages) || backup.pages.length === 0) {
+    throw new Error('Backup contains no pages');
+  }
+
+  // Validate all page entries BEFORE deleting anything
+  for (const pageData of backup.pages) {
+    if (!pageData.url || typeof pageData.url !== 'string') {
+      throw new Error('Backup contains invalid page data (missing URL)');
+    }
+  }
+
+  // Clear existing pages only after validation passes
   for (const page of store.getAll()) {
     await store.delete(page.id);
   }

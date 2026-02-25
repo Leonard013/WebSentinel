@@ -1,6 +1,7 @@
 /**
- * Popup script - Main UI logic for Page Watch
+ * Popup script - Main UI logic for WebSentinel
  */
+console.log('[Popup] Script loaded - v3 (' + new Date().toLocaleTimeString() + ')');
 
 import { createBackup, downloadBackup, openBackupFile, restoreBackup } from '../lib/backup.js';
 import { PageStore } from '../lib/page.js';
@@ -24,6 +25,11 @@ const pageTitleInput = document.getElementById('pageTitle');
 const pageUrlInput = document.getElementById('pageUrl');
 const scanIntervalSelect = document.getElementById('scanInterval');
 const changeThresholdSelect = document.getElementById('changeThreshold');
+const ignoreNumbersCheckbox = document.getElementById('ignoreNumbers');
+const textOnlyModeCheckbox = document.getElementById('textOnlyMode');
+
+// Search
+const searchInput = document.getElementById('searchInput');
 
 // Menu buttons
 const scanAllBtn = document.getElementById('scanAllBtn');
@@ -32,6 +38,8 @@ const restoreBtn = document.getElementById('restoreBtn');
 
 // State
 let editingPageId = null;
+let currentPages = [];
+let searchTerm = '';
 
 /**
  * Send message to service worker
@@ -52,6 +60,9 @@ async function loadPages() {
  * Render the page list
  */
 function renderPageList(pages) {
+  // Store pages for the delegated click handler
+  currentPages = pages;
+
   if (pages.length === 0) {
     pageList.innerHTML = `
       <div class="empty-state">
@@ -65,45 +76,38 @@ function renderPageList(pages) {
     return;
   }
 
+  // Filter by search term
+  let filtered = pages;
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filtered = pages.filter(p =>
+      p.title.toLowerCase().includes(term) ||
+      p.url.toLowerCase().includes(term)
+    );
+  }
+
+  if (filtered.length === 0) {
+    pageList.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <p>No matching pages</p>
+        <span>Try a different search term</span>
+      </div>
+    `;
+    return;
+  }
+
   // Sort: changed first, then by title
-  const sorted = [...pages].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     if (a.state === 'changed' && b.state !== 'changed') return -1;
     if (b.state === 'changed' && a.state !== 'changed') return 1;
     return a.title.localeCompare(b.title);
   });
 
   pageList.innerHTML = sorted.map(page => createPageCard(page)).join('');
-
-  // Add event listeners
-  pageList.querySelectorAll('.page-card').forEach(card => {
-    const pageId = card.dataset.id;
-    
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.page-actions')) return;
-      handlePageClick(pageId, pages.find(p => p.id === pageId));
-    });
-  });
-
-  pageList.querySelectorAll('.scan-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleScanPage(btn.dataset.id);
-    });
-  });
-
-  pageList.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleEditPage(btn.dataset.id);
-    });
-  });
-
-  pageList.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleDeletePage(btn.dataset.id);
-    });
-  });
 }
 
 /**
@@ -191,6 +195,8 @@ async function handleEditPage(pageId) {
   pageUrlInput.value = page.url;
   scanIntervalSelect.value = page.scanIntervalMinutes;
   changeThresholdSelect.value = page.changeThreshold || 100;
+  ignoreNumbersCheckbox.checked = page.ignoreNumbers || false;
+  textOnlyModeCheckbox.checked = page.textOnlyMode || false;
   showModal();
 }
 
@@ -198,9 +204,17 @@ async function handleEditPage(pageId) {
  * Handle delete page
  */
 async function handleDeletePage(pageId) {
-  if (!confirm('Delete this page?')) return;
-  await sendMessage({ type: 'DELETE_PAGE', id: pageId });
-  loadPages();
+  showStatus('Deleting...');
+  try {
+    await sendMessage({ type: 'DELETE_PAGE', id: pageId });
+    await loadPages();
+    showStatus('Page deleted');
+    setTimeout(hideStatus, 1500);
+  } catch (error) {
+    console.error('[Popup] Delete error:', error);
+    showStatus('Delete failed: ' + (error.message || 'Unknown error'));
+    setTimeout(hideStatus, 3000);
+  }
 }
 
 /**
@@ -276,7 +290,9 @@ async function handleFormSubmit(e) {
     title: pageTitleInput.value.trim(),
     url: pageUrlInput.value.trim(),
     scanIntervalMinutes: parseInt(scanIntervalSelect.value, 10),
-    changeThreshold: parseInt(changeThresholdSelect.value, 10)
+    changeThreshold: parseInt(changeThresholdSelect.value, 10),
+    ignoreNumbers: ignoreNumbersCheckbox.checked,
+    textOnlyMode: textOnlyModeCheckbox.checked
   };
 
   if (editingPageId) {
@@ -293,6 +309,8 @@ async function handleFormSubmit(e) {
  * UI Helpers
  */
 function showModal() {
+  searchTerm = '';
+  searchInput.value = '';
   modal.classList.remove('hidden');
   pageTitleInput.focus();
 }
@@ -359,6 +377,31 @@ async function getCurrentTabInfo() {
 /**
  * Event Listeners
  */
+
+// Single delegated click handler for all page card actions
+pageList.addEventListener('click', (e) => {
+  // Check action buttons first (scan, edit, delete)
+  const actionBtn = e.target.closest('.scan-btn, .edit-btn, .delete-btn');
+  if (actionBtn) {
+    e.stopPropagation();
+    const id = actionBtn.dataset.id;
+    if (actionBtn.classList.contains('scan-btn')) {
+      handleScanPage(id);
+    } else if (actionBtn.classList.contains('edit-btn')) {
+      handleEditPage(id);
+    } else if (actionBtn.classList.contains('delete-btn')) {
+      handleDeletePage(id);
+    }
+    return;
+  }
+
+  const card = e.target.closest('.page-card');
+  if (card && !e.target.closest('.page-actions')) {
+    const page = currentPages.find(p => p.id === card.dataset.id);
+    if (page) handlePageClick(card.dataset.id, page);
+  }
+});
+
 menuBtn.addEventListener('click', toggleMenu);
 document.addEventListener('click', (e) => {
   if (!menu.contains(e.target) && !menuBtn.contains(e.target)) {
@@ -388,6 +431,12 @@ pageForm.addEventListener('submit', handleFormSubmit);
 scanAllBtn.addEventListener('click', handleScanAll);
 backupBtn.addEventListener('click', handleBackup);
 restoreBtn.addEventListener('click', handleRestore);
+
+// Search filtering
+searchInput.addEventListener('input', () => {
+  searchTerm = searchInput.value.trim();
+  renderPageList(currentPages);
+});
 
 // Close modal on escape
 document.addEventListener('keydown', (e) => {

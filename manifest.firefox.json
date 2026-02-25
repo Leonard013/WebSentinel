@@ -4,6 +4,12 @@
   "short_name": "WebSentinel",
   "version": "1.0.0",
   "description": "Monitor webpages for changes and get notified when they update. Auto-scans at your chosen intervals.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "websentinel@pagewatch",
+      "strict_min_version": "109.0"
+    }
+  },
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -20,7 +26,7 @@
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "src/background/service-worker.js",
+    "scripts": ["src/background/service-worker.js"],
     "type": "module"
   },
   "action": {

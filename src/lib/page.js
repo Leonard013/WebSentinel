@@ -18,7 +18,10 @@ const DEFAULTS = {
   state: PageState.NO_CHANGE,
   lastScanTime: null,
   lastChangeTime: null,
-  errorMessage: null
+  oldScanTime: null,
+  errorMessage: null,
+  ignoreNumbers: false,
+  textOnlyMode: false
 };
 
 /**
@@ -34,7 +37,10 @@ export class Page {
     this.state = data.state ?? DEFAULTS.state;
     this.lastScanTime = data.lastScanTime ?? DEFAULTS.lastScanTime;
     this.lastChangeTime = data.lastChangeTime ?? DEFAULTS.lastChangeTime;
+    this.oldScanTime = data.oldScanTime ?? DEFAULTS.oldScanTime;
     this.errorMessage = data.errorMessage ?? DEFAULTS.errorMessage;
+    this.ignoreNumbers = data.ignoreNumbers ?? DEFAULTS.ignoreNumbers;
+    this.textOnlyMode = data.textOnlyMode ?? DEFAULTS.textOnlyMode;
   }
 
   static key(id) {
@@ -66,7 +72,10 @@ export class Page {
       state: this.state,
       lastScanTime: this.lastScanTime,
       lastChangeTime: this.lastChangeTime,
-      errorMessage: this.errorMessage
+      oldScanTime: this.oldScanTime,
+      errorMessage: this.errorMessage,
+      ignoreNumbers: this.ignoreNumbers,
+      textOnlyMode: this.textOnlyMode
     };
   }
 

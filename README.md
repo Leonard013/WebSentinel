@@ -12,6 +12,11 @@ WebSentinel monitors web pages for content changes. It runs in the background an
 - **Local Processing:** All checks happen locally in your browser — no external servers involved.
 - **Cloud Sync:** Page list syncs across devices via Chrome/Firefox sync.
 - **Backup & Restore:** Export and import your monitored pages as JSON.
+- **Private by Design:** No developer server, analytics, advertising, or account. Page contents stay in browser storage; requests omit cookies and credentials.
+
+## Privacy
+
+WebSentinel stores the page URLs and settings you choose in browser storage and keeps fetched page snapshots locally in IndexedDB. It does not send this information to the developer or to analytics/advertising services. See the complete [Privacy Policy](PRIVACY.md).
 
 ## Installation
 
@@ -106,3 +111,5 @@ python3 -m http.server 8000
 ```
 
 Quick smoke tests: open `test/simple-test.html` in the browser.
+
+The full suite exercises the actual source modules and reports a pass/fail summary in the page.

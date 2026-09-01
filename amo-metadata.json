@@ -1,0 +1,21 @@
+{
+  "summary": {
+    "en-US": "Monitor web pages for changes and get notified when they update."
+  },
+  "description": {
+    "en-US": "WebSentinel monitors the web pages you choose and notifies you when their content changes. Configure a scan interval and sensitivity for each page, then inspect detected edits in a built-in visual diff viewer.\n\nEverything runs locally in Firefox. WebSentinel has no developer server, account, analytics, advertising, or remote code. Monitored URLs, settings, and page snapshots remain in browser storage. Backup and restore are available as a local JSON file."
+  },
+  "categories": [
+    "alerts-updates"
+  ],
+  "homepage": {
+    "en-US": "https://github.com/Leonard013/WebSentinel"
+  },
+  "version": {
+    "license": "MIT",
+    "release_notes": {
+      "en-US": "Initial Firefox release of WebSentinel."
+    },
+    "approval_notes": "WebSentinel is plain JavaScript with no compiled or minified production bundle and no remote code. To test it, add any public HTTP(S) page from the popup, run Scan now, then change the saved sensitivity or wait for a later scan. Broad HTTP(S) host permissions are required because users choose which public pages to monitor. Fetch requests explicitly omit cookies and credentials. Page metadata and snapshots remain in Firefox storage and IndexedDB; nothing is transmitted to the developer."
+  }
+}

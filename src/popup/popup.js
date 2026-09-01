@@ -107,38 +107,39 @@ function renderPageList(pages) {
     return a.title.localeCompare(b.title);
   });
 
-  pageList.innerHTML = sorted.map(page => createPageCard(page)).join('');
+  pageList.replaceChildren(...sorted.map(page => createPageCard(page)));
 }
 
 /**
- * Create page card HTML
+ * Create a page card without interpolating stored page data into HTML.
  */
 function createPageCard(page) {
   const stateClass = page.state === 'changed' ? 'changed' : page.state === 'error' ? 'error' : '';
   const lastScan = page.lastScanTime ? formatTime(page.lastScanTime) : 'Never';
   const threshold = page.changeThreshold || 100;
   const sensitivityLabel = getSensitivityLabel(threshold);
-  
-  return `
-    <div class="page-card ${stateClass}" data-id="${page.id}">
+
+  const template = document.createElement('template');
+  template.innerHTML = `
+    <div class="page-card">
       <div class="page-indicator"></div>
       <div class="page-info">
-        <div class="page-title">${escapeHtml(page.title)}</div>
-        <div class="page-url">${escapeHtml(page.url)}</div>
-        <div class="page-meta">Last scan: ${lastScan} • Sensitivity: ${sensitivityLabel}</div>
+        <div class="page-title"></div>
+        <div class="page-url"></div>
+        <div class="page-meta"></div>
       </div>
       <div class="page-actions">
-        <button class="icon-btn scan-btn" data-id="${page.id}" title="Scan now">
+        <button class="icon-btn scan-btn" title="Scan now">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
         </button>
-        <button class="icon-btn edit-btn" data-id="${page.id}" title="Edit">
+        <button class="icon-btn edit-btn" title="Edit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
           </svg>
         </button>
-        <button class="icon-btn delete-btn" data-id="${page.id}" title="Delete">
+        <button class="icon-btn delete-btn" title="Delete">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
           </svg>
@@ -146,6 +147,19 @@ function createPageCard(page) {
       </div>
     </div>
   `;
+
+  const card = template.content.firstElementChild;
+  const pageId = String(page.id);
+  if (stateClass) card.classList.add(stateClass);
+  card.dataset.id = pageId;
+  card.querySelector('.page-title').textContent = page.title;
+  card.querySelector('.page-url').textContent = page.url;
+  card.querySelector('.page-meta').textContent = `Last scan: ${lastScan} • Sensitivity: ${sensitivityLabel}`;
+  for (const button of card.querySelectorAll('[class$="-btn"]')) {
+    button.dataset.id = pageId;
+  }
+
+  return card;
 }
 
 /**
@@ -348,12 +362,6 @@ function formatTime(timestamp) {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   
   return date.toLocaleDateString();
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 function getSensitivityLabel(threshold) {

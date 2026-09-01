@@ -84,6 +84,7 @@ The [Build and release extension](.github/workflows/release.yml) workflow runs o
 - Generates `SHA256SUMS.txt` so downloaded packages can be verified.
 - Creates an immutable `v{VERSION}` GitHub Release when the version changes in both manifests.
 - Can upload and submit that new version through the Chrome Web Store API V2.
+- Validates the Firefox package with Mozilla `web-ext` and can submit it to Firefox Add-ons (AMO).
 
 To release a new version, update `version` in both `manifest.json` and `manifest.firefox.json`, then push to `main`. Reusing an existing version tag is rejected so a published package always maps to one Git commit.
 
@@ -96,6 +97,15 @@ Chrome publishing is disabled until its credentials are configured:
 5. Add the GitHub Actions repository variable `CHROME_AUTO_PUBLISH` with value `true`.
 
 The workflow submits only a newly released version and requests automatic publication after review. It never prints the service-account key. A manual run can create the current release or retry Chrome submission using the workflow inputs.
+
+Firefox Add-ons publishing is also disabled until its credentials are configured:
+
+1. Sign in to [addons.mozilla.org](https://addons.mozilla.org/) and create API credentials from the [AMO API key page](https://addons.mozilla.org/developers/addon/api/key/).
+2. Add the JWT issuer as the GitHub Actions secret `AMO_JWT_ISSUER`.
+3. Add the JWT secret as the GitHub Actions secret `AMO_JWT_SECRET`.
+4. Add the GitHub Actions repository variable `FIREFOX_AUTO_PUBLISH` with value `true`.
+
+The first listed submission uses [`amo-metadata.json`](amo-metadata.json) to create the AMO listing. Later version bumps update the same listing through the stable Firefox add-on ID in `manifest.firefox.json`. A manual workflow run can retry the Firefox submission without enabling automatic publishing.
 
 ## Project Structure
 
@@ -118,7 +128,7 @@ WebSentinel/
 | Feature | Chrome | Firefox |
 |---------|--------|---------|
 | Manifest | V3 (service worker) | V3 (background scripts) |
-| Min version | Chrome 102+ | Firefox 109+ |
+| Min version | Chrome 102+ | Firefox 140+ (142+ on Android) |
 | Storage sync | chrome.storage.sync | chrome.storage.sync |
 | Notifications | Full support | Full support |
 | Keyboard shortcut | Alt+W | Alt+W |

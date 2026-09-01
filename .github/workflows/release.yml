@@ -16,6 +16,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish_firefox:
+        description: Upload and submit the current version to Firefox Add-ons
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: websentinel-release-${{ github.ref }}
@@ -57,7 +62,8 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
           CREATE_RELEASE: ${{ inputs.create_release }}
-          MANUAL_PUBLISH: ${{ inputs.publish_chrome }}
+          MANUAL_CHROME_PUBLISH: ${{ inputs.publish_chrome }}
+          MANUAL_FIREFOX_PUBLISH: ${{ inputs.publish_firefox }}
         run: |
           node -e '
             const chrome = require("./manifest.json").version;
@@ -90,7 +96,9 @@ jobs:
                 should_release=true
               fi
             fi
-          elif [[ "${CREATE_RELEASE}" == "true" || "${MANUAL_PUBLISH}" == "true" ]]; then
+          elif [[ "${CREATE_RELEASE}" == "true" || \
+            "${MANUAL_CHROME_PUBLISH}" == "true" || \
+            "${MANUAL_FIREFOX_PUBLISH}" == "true" ]]; then
             should_release=true
           fi
 
@@ -115,6 +123,20 @@ jobs:
 
       - name: Build Chrome and Firefox packages
         run: node build.js --all
+
+      - name: Lint Firefox package with Mozilla web-ext
+        shell: bash
+        env:
+          FIREFOX_ZIP: ${{ steps.metadata.outputs.firefox_zip }}
+        run: |
+          firefox_source="${RUNNER_TEMP}/websentinel-firefox-lint"
+          mkdir -p "${firefox_source}"
+          unzip -q "${FIREFOX_ZIP}" -d "${firefox_source}"
+          npm exec --yes --package=web-ext@10.5.0 -- \
+            web-ext lint \
+              --source-dir "${firefox_source}" \
+              --warnings-as-errors \
+              --boring
 
       - name: Verify packages
         shell: bash
@@ -239,12 +261,54 @@ jobs:
           CHROME_VERSION: ${{ needs.build.outputs.version }}
         run: node .github/scripts/publish-chrome.mjs
 
+      - name: Decide whether to publish to Firefox Add-ons
+        id: firefox
+        shell: bash
+        env:
+          AUTO_PUBLISH: ${{ vars.FIREFOX_AUTO_PUBLISH }}
+          MANUAL_PUBLISH: ${{ inputs.publish_firefox }}
+          AMO_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          requested=false
+          if [[ "${AUTO_PUBLISH}" == "true" || "${MANUAL_PUBLISH}" == "true" ]]; then
+            requested=true
+          fi
+
+          if [[ "${requested}" == "true" && ( -z "${AMO_API_KEY}" || -z "${AMO_API_SECRET}" ) ]]; then
+            echo "::error::Firefox publishing was requested, but AMO_JWT_ISSUER and AMO_JWT_SECRET are not both configured."
+            exit 1
+          fi
+
+          echo "enabled=${requested}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload and submit to Firefox Add-ons
+        if: steps.firefox.outputs.enabled == 'true'
+        shell: bash
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          WEB_EXT_CHANNEL: listed
+          WEB_EXT_AMO_METADATA: amo-metadata.json
+          WEB_EXT_APPROVAL_TIMEOUT: "0"
+          WEB_EXT_NO_INPUT: "true"
+          WEB_EXT_CONFIG_DISCOVERY: "false"
+          WEB_EXT_SOURCE_DIR: ${{ runner.temp }}/websentinel-firefox-submit
+          WEB_EXT_ARTIFACTS_DIR: ${{ runner.temp }}/web-ext-artifacts
+          FIREFOX_PACKAGE: dist/${{ needs.build.outputs.firefox_zip }}
+        run: |
+          mkdir -p "${WEB_EXT_SOURCE_DIR}" "${WEB_EXT_ARTIFACTS_DIR}"
+          unzip -q "${FIREFOX_PACKAGE}" -d "${WEB_EXT_SOURCE_DIR}"
+          npm exec --yes --package=web-ext@10.5.0 -- web-ext sign
+
       - name: Write release summary
         shell: bash
         env:
           CHROME_ENABLED: ${{ steps.chrome.outputs.enabled }}
+          FIREFOX_ENABLED: ${{ steps.firefox.outputs.enabled }}
           TAG: ${{ needs.build.outputs.tag }}
         run: |
           echo "## Release ${TAG}" >> "${GITHUB_STEP_SUMMARY}"
           echo "- GitHub release: created or updated" >> "${GITHUB_STEP_SUMMARY}"
           echo "- Chrome Web Store submission requested: \`${CHROME_ENABLED}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Firefox Add-ons submission requested: \`${FIREFOX_ENABLED}\`" >> "${GITHUB_STEP_SUMMARY}"

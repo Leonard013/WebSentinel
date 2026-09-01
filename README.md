@@ -75,6 +75,27 @@ Output files:
 - `WebSentinel-v{VERSION}.zip` — Chrome Web Store package
 - `WebSentinel-firefox-v{VERSION}.zip` — Firefox Add-ons package
 
+## Automated Builds and Releases
+
+The [Build and release extension](.github/workflows/release.yml) workflow runs on every push to `main`:
+
+- Builds and validates both Chrome and Firefox packages.
+- Stores a 90-day GitHub Actions artifact named with the manifest version and commit SHA.
+- Generates `SHA256SUMS.txt` so downloaded packages can be verified.
+- Creates an immutable `v{VERSION}` GitHub Release when the version changes in both manifests.
+- Can upload and submit that new version through the Chrome Web Store API V2.
+
+To release a new version, update `version` in both `manifest.json` and `manifest.firefox.json`, then push to `main`. Reusing an existing version tag is rejected so a published package always maps to one Git commit.
+
+Chrome publishing is disabled until its credentials are configured:
+
+1. Enable the Chrome Web Store API in a Google Cloud project and create a service account.
+2. Add the service account email under **Chrome Web Store Developer Dashboard → Settings → Service account**.
+3. Add the complete JSON key as the GitHub Actions secret `CHROME_SERVICE_ACCOUNT_JSON`.
+4. Add the GitHub Actions repository variable `CHROME_AUTO_PUBLISH` with value `true`.
+
+The workflow submits only a newly released version and requests automatic publication after review. It never prints the service-account key. A manual run can create the current release or retry Chrome submission using the workflow inputs.
+
 ## Project Structure
 
 ```

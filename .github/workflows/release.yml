@@ -1,0 +1,250 @@
+name: Build and release extension
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: Create the GitHub release for the current manifest version
+        required: false
+        type: boolean
+        default: false
+      publish_chrome:
+        description: Upload and submit the current version to the Chrome Web Store
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: websentinel-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CHROME_PUBLISHER_ID: 4dba2d6e-bd92-464a-8794-c18c94858330
+  CHROME_EXTENSION_ID: mngdcibgkecbchcoemcombjaaaogjjfn
+
+jobs:
+  build:
+    name: Build extension packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      artifact_name: ${{ steps.metadata.outputs.artifact_name }}
+      chrome_zip: ${{ steps.metadata.outputs.chrome_zip }}
+      firefox_zip: ${{ steps.metadata.outputs.firefox_zip }}
+      should_release: ${{ steps.metadata.outputs.should_release }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Validate versions and determine release
+        id: metadata
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          CREATE_RELEASE: ${{ inputs.create_release }}
+          MANUAL_PUBLISH: ${{ inputs.publish_chrome }}
+        run: |
+          node -e '
+            const chrome = require("./manifest.json").version;
+            const firefox = require("./manifest.firefox.json").version;
+            if (chrome !== firefox) {
+              throw new Error(`Manifest versions differ: Chrome ${chrome}, Firefox ${firefox}`);
+            }
+            if (!/^\d+(\.\d+){0,3}$/.test(chrome)) {
+              throw new Error(`Invalid Chrome extension version: ${chrome}`);
+            }
+            if (chrome.split(".").some((part) => Number(part) > 65535)) {
+              throw new Error(`Version components must not exceed 65535: ${chrome}`);
+            }
+          '
+
+          version=$(node -p 'require("./manifest.json").version')
+          tag="v${version}"
+          short_sha="${GITHUB_SHA:0:7}"
+          chrome_zip="WebSentinel-v${version}.zip"
+          firefox_zip="WebSentinel-firefox-v${version}.zip"
+          should_release=false
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            zero_sha=0000000000000000000000000000000000000000
+            if [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "${zero_sha}" ]] && \
+              git cat-file -e "${BEFORE_SHA}:manifest.json" 2>/dev/null; then
+              git show "${BEFORE_SHA}:manifest.json" > "${RUNNER_TEMP}/previous-manifest.json"
+              previous_version=$(node -p 'require(process.argv[1]).version' "${RUNNER_TEMP}/previous-manifest.json")
+              if [[ "${previous_version}" != "${version}" ]]; then
+                should_release=true
+              fi
+            fi
+          elif [[ "${CREATE_RELEASE}" == "true" || "${MANUAL_PUBLISH}" == "true" ]]; then
+            should_release=true
+          fi
+
+          tag_exists=false
+          if [[ "${should_release}" == "true" ]] && \
+            git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
+            tag_exists=true
+            tag_commit=$(git rev-list -n 1 "${tag}")
+            if [[ "${tag_commit}" != "${GITHUB_SHA}" ]]; then
+              echo "::error::${tag} already points to ${tag_commit}; bump manifest versions before releasing again."
+              exit 1
+            fi
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "chrome_zip=${chrome_zip}" >> "${GITHUB_OUTPUT}"
+          echo "firefox_zip=${firefox_zip}" >> "${GITHUB_OUTPUT}"
+          echo "artifact_name=WebSentinel-v${version}-${short_sha}" >> "${GITHUB_OUTPUT}"
+          echo "should_release=${should_release}" >> "${GITHUB_OUTPUT}"
+          echo "tag_exists=${tag_exists}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build Chrome and Firefox packages
+        run: node build.js --all
+
+      - name: Verify packages
+        shell: bash
+        env:
+          CHROME_ZIP: ${{ steps.metadata.outputs.chrome_zip }}
+          FIREFOX_ZIP: ${{ steps.metadata.outputs.firefox_zip }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          unzip -tqq "${CHROME_ZIP}"
+          unzip -tqq "${FIREFOX_ZIP}"
+
+          chrome_version=$(unzip -p "${CHROME_ZIP}" manifest.json | node -e '
+            let input = "";
+            process.stdin.on("data", (chunk) => input += chunk);
+            process.stdin.on("end", () => process.stdout.write(JSON.parse(input).version));
+          ')
+          firefox_version=$(unzip -p "${FIREFOX_ZIP}" manifest.json | node -e '
+            let input = "";
+            process.stdin.on("data", (chunk) => input += chunk);
+            process.stdin.on("end", () => process.stdout.write(JSON.parse(input).version));
+          ')
+
+          [[ "${chrome_version}" == "${VERSION}" ]]
+          [[ "${firefox_version}" == "${VERSION}" ]]
+
+          mkdir -p dist
+          mv "${CHROME_ZIP}" "${FIREFOX_ZIP}" dist/
+          cd dist
+          sha256sum "${CHROME_ZIP}" "${FIREFOX_ZIP}" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+
+      - name: Upload packages for this commit
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.metadata.outputs.artifact_name }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Write build summary
+        shell: bash
+        env:
+          ARTIFACT_NAME: ${{ steps.metadata.outputs.artifact_name }}
+          SHOULD_RELEASE: ${{ steps.metadata.outputs.should_release }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          echo "## WebSentinel ${VERSION}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Commit artifact: \`${ARTIFACT_NAME}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- GitHub release requested: \`${SHOULD_RELEASE}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- SHA-256 checksums: included in \`SHA256SUMS.txt\`" >> "${GITHUB_STEP_SUMMARY}"
+
+  release:
+    name: Release new version
+    needs: build
+    if: needs.build.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Download verified packages
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: dist
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          if ! gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release create "${TAG}" \
+              --target "${GITHUB_SHA}" \
+              --title "WebSentinel ${VERSION}" \
+              --generate-notes
+          fi
+
+          gh release upload "${TAG}" \
+            dist/WebSentinel-v${VERSION}.zip \
+            dist/WebSentinel-firefox-v${VERSION}.zip \
+            dist/SHA256SUMS.txt \
+            --clobber
+
+      - name: Decide whether to publish to Chrome
+        id: chrome
+        shell: bash
+        env:
+          AUTO_PUBLISH: ${{ vars.CHROME_AUTO_PUBLISH }}
+          MANUAL_PUBLISH: ${{ inputs.publish_chrome }}
+          SERVICE_ACCOUNT_JSON: ${{ secrets.CHROME_SERVICE_ACCOUNT_JSON }}
+        run: |
+          requested=false
+          if [[ "${AUTO_PUBLISH}" == "true" || "${MANUAL_PUBLISH}" == "true" ]]; then
+            requested=true
+          fi
+
+          if [[ "${requested}" == "true" && -z "${SERVICE_ACCOUNT_JSON}" ]]; then
+            echo "::error::Chrome publishing was requested, but CHROME_SERVICE_ACCOUNT_JSON is not configured."
+            exit 1
+          fi
+
+          echo "enabled=${requested}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload and submit to Chrome Web Store
+        if: steps.chrome.outputs.enabled == 'true'
+        env:
+          CHROME_SERVICE_ACCOUNT_JSON: ${{ secrets.CHROME_SERVICE_ACCOUNT_JSON }}
+          CHROME_PACKAGE: dist/${{ needs.build.outputs.chrome_zip }}
+          CHROME_VERSION: ${{ needs.build.outputs.version }}
+        run: node .github/scripts/publish-chrome.mjs
+
+      - name: Write release summary
+        shell: bash
+        env:
+          CHROME_ENABLED: ${{ steps.chrome.outputs.enabled }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          echo "## Release ${TAG}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- GitHub release: created or updated" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Chrome Web Store submission requested: \`${CHROME_ENABLED}\`" >> "${GITHUB_STEP_SUMMARY}"

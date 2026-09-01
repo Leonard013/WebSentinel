@@ -128,7 +128,7 @@ WebSentinel/
 | Feature | Chrome | Firefox |
 |---------|--------|---------|
 | Manifest | V3 (service worker) | V3 (background scripts) |
-| Min version | Chrome 102+ | Firefox 140+ (142+ on Android) |
+| Min version | Chrome 102+ | Firefox 142+ |
 | Storage sync | chrome.storage.sync | chrome.storage.sync |
 | Notifications | Full support | Full support |
 | Keyboard shortcut | Alt+W | Alt+W |

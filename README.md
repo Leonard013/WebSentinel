@@ -91,8 +91,9 @@ Chrome publishing is disabled until its credentials are configured:
 
 1. Enable the Chrome Web Store API in a Google Cloud project and create a service account.
 2. Add the service account email under **Chrome Web Store Developer Dashboard → Settings → Service account**.
-3. Add the complete JSON key as the GitHub Actions secret `CHROME_SERVICE_ACCOUNT_JSON`.
-4. Add the GitHub Actions repository variable `CHROME_AUTO_PUBLISH` with value `true`.
+3. Configure the public repository variables `CHROME_PUBLISHER_ID` and `CHROME_EXTENSION_ID` for the target listing.
+4. Add the complete JSON key as the GitHub Actions secret `CHROME_SERVICE_ACCOUNT_JSON`.
+5. Add the GitHub Actions repository variable `CHROME_AUTO_PUBLISH` with value `true`.
 
 The workflow submits only a newly released version and requests automatic publication after review. It never prints the service-account key. A manual run can create the current release or retry Chrome submission using the workflow inputs.
 

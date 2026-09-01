@@ -22,8 +22,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CHROME_PUBLISHER_ID: 4dba2d6e-bd92-464a-8794-c18c94858330
-  CHROME_EXTENSION_ID: mngdcibgkecbchcoemcombjaaaogjjfn
+  CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+  CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
 
 jobs:
   build:
